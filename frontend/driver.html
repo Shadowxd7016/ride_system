@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RideFlow — Driver Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *{scrollbar-width:thin;scrollbar-color:#334155 #0f172a}
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#0f172a}::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+    body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0}
+    .glass{background:rgba(30,41,59,.6);backdrop-filter:blur(16px);border:1px solid rgba(148,163,184,.08)}
+    .glass-strong{background:rgba(30,41,59,.85);backdrop-filter:blur(20px);border:1px solid rgba(148,163,184,.12)}
+    .nav-item{transition:all .2s;cursor:pointer}
+    .nav-item.active{color:#22d3ee;background:rgba(6,182,212,.08);border-left:3px solid #06b6d4}
+    .nav-item:hover:not(.active){color:#94a3b8;background:rgba(148,163,184,.05)}
+    .view-section{display:none}.view-section.active{display:block;animation:fadeIn .3s ease}
+    .badge{font-size:.65rem;padding:.2rem .6rem;border-radius:9999px;font-weight:600}
+    .btn-primary{background:linear-gradient(135deg,#06b6d4,#0891b2);transition:all .3s}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(6,182,212,.4)}
+    .btn-success{background:linear-gradient(135deg,#10b981,#059669);transition:all .3s}
+    .btn-success:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(16,185,129,.4)}
+    .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);transition:all .3s}
+    .btn-danger:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(239,68,68,.4)}
+    .tr-hover:hover{background:rgba(6,182,212,.03)}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes pulse-ring{0%{transform:scale(.8);opacity:.8}100%{transform:scale(1.4);opacity:0}}
+    input:focus,select:focus{outline:none;border-color:#06b6d4;box-shadow:0 0 0 3px rgba(6,182,212,.15)}
+    .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;position:relative}
+    .status-dot.online{background:#10b981}
+    .status-dot.online::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:2px solid #10b981;animation:pulse-ring 1.5s infinite}
+    .status-dot.offline{background:#64748b}
+    .status-dot.on_trip{background:#f59e0b}
+    .toggle-track{width:44px;height:24px;border-radius:12px;background:#334155;position:relative;cursor:pointer;transition:background .3s}
+    .toggle-track.on{background:#06b6d4}
+    .toggle-thumb{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .3s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+    .toggle-track.on .toggle-thumb{left:23px}
+    .ride-card{transition:all .2s}
+    .ride-card:hover{border-color:rgba(6,182,212,.3);background:rgba(6,182,212,.03)}
+    .earnings-bar{height:4px;border-radius:2px;background:rgba(6,182,212,.15)}
+    .earnings-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#06b6d4,#8b5cf6);transition:width 1s ease}
+    .shimmer{background:linear-gradient(90deg,rgba(30,41,59,.6) 25%,rgba(51,65,85,.6) 50%,rgba(30,41,59,.6) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+    /* ── Trip Progress Steps ── */
+    .step-bar{display:flex;align-items:center;gap:0;margin-bottom:1.25rem}
+    .step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative}
+    .step:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:#1e293b;z-index:0}
+    .step:not(:last-child).done::after{background:#06b6d4}
+    .step-dot{width:28px;height:28px;border-radius:50%;border:2px solid #334155;background:#0f172a;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:#64748b;z-index:1;transition:all .3s}
+    .step.done .step-dot{background:#06b6d4;border-color:#06b6d4;color:#fff}
+    .step.active .step-dot{background:#0f172a;border-color:#f59e0b;color:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.15)}
+    .step-label{font-size:.55rem;color:#475569;margin-top:.4rem;text-transform:uppercase;letter-spacing:.05em;text-align:center;font-weight:600}
+    .step.done .step-label{color:#06b6d4}
+    .step.active .step-label{color:#f59e0b}
+
+    /* Active trip card glow */
+    .active-trip-card{border:1px solid rgba(245,158,11,.25);background:rgba(245,158,11,.04);animation:tripGlow 3s ease-in-out infinite}
+    @keyframes tripGlow{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 20px -4px rgba(245,158,11,.2)}}
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex">
+
+<!-- SIDEBAR -->
+<aside class="w-20 lg:w-64 bg-slate-900/90 border-r border-slate-800/80 flex flex-col flex-shrink-0">
+  <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800/80">
+    <div class="w-9 h-9 rounded-xl bg-cyan-500/15 flex items-center justify-center border border-cyan-500/20">
+      <i class="fas fa-wave-square text-cyan-400 text-sm"></i>
+    </div>
+    <span class="hidden lg:block ml-3 font-bold text-white">RideFlow</span>
+  </div>
+  <nav class="flex-1 py-6 space-y-1 overflow-y-auto">
+    <div class="nav-item active flex items-center px-4 lg:px-6 py-3 text-sm font-medium" onclick="nav('dashboard',this)">
+      <i class="fas fa-grid-2 w-5 text-center"></i><span class="hidden lg:block ml-3">Dashboard</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" data-view="rides" onclick="nav('rides',this)">
+      <i class="fas fa-route w-5 text-center"></i><span class="hidden lg:block ml-3">My Rides</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('earnings',this)">
+      <i class="fas fa-wallet w-5 text-center"></i><span class="hidden lg:block ml-3">Earnings</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('vehicles',this)">
+      <i class="fas fa-car w-5 text-center"></i><span class="hidden lg:block ml-3">My Vehicles</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('payouts',this)">
+      <i class="fas fa-money-bill-transfer w-5 text-center"></i><span class="hidden lg:block ml-3">Payouts</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('profile',this)">
+      <i class="fas fa-circle-user w-5 text-center"></i><span class="hidden lg:block ml-3">Profile</span>
+    </div>
+  </nav>
+  <div class="hidden lg:block px-6 py-4 border-t border-slate-800/80">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span id="sidebar-dot" class="status-dot offline"></span>
+        <span id="sidebar-status-txt" class="text-xs font-semibold text-slate-400">Offline</span>
+      </div>
+      <div id="sidebar-toggle" class="toggle-track" onclick="toggleAvailability()">
+        <div class="toggle-thumb"></div>
+      </div>
+    </div>
+  </div>
+  <div class="p-4 border-t border-slate-800/80 lg:border-0">
+    <button onclick="logout()" class="w-full flex items-center justify-center lg:justify-start px-2 py-2.5 text-slate-400 hover:text-red-400 rounded-xl transition text-sm font-medium">
+      <i class="fas fa-arrow-right-from-bracket w-5 text-center"></i><span class="hidden lg:block ml-3">Logout</span>
+    </button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 flex flex-col min-w-0">
+  <header class="h-16 glass-strong border-b border-slate-800/60 flex items-center justify-between px-6 lg:px-8 flex-shrink-0">
+    <div>
+      <h1 class="text-lg font-bold text-white" id="pageTitle">Driver Dashboard</h1>
+      <p class="text-[10px] text-slate-500">Driver Portal | Ride Management</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex lg:hidden items-center gap-2 glass rounded-xl px-3 py-2">
+        <span id="mob-dot" class="status-dot offline"></span>
+        <div id="mob-toggle" class="toggle-track" onclick="toggleAvailability()">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      <div class="glass rounded-xl pl-2 pr-4 py-1.5 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+          <i class="fas fa-steering-wheel text-cyan-400 text-sm"></i>
+        </div>
+        <div class="hidden md:block">
+          <p class="text-sm font-semibold text-white leading-tight" id="driverName">Driver</p>
+          <p class="text-[10px] text-slate-400" id="headerRating">★ —</p>
+        </div>
+      </div>
+      <button onclick="refreshAll()" class="w-9 h-9 rounded-xl glass flex items-center justify-center text-slate-400 hover:text-cyan-400 transition">
+        <i class="fas fa-rotate-right text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-6 lg:p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div id="view-dashboard" class="view-section active space-y-6">
+        <!-- Stats -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Trips</p>
+            <p class="text-2xl font-bold text-white mt-1" id="stat-trips">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Avg Rating</p>
+            <p class="text-2xl font-bold text-yellow-400 mt-1" id="stat-rating">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Net Earnings</p>
+            <p class="text-2xl font-bold text-emerald-400 mt-1" id="stat-net">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Commission (20%)</p>
+            <p class="text-2xl font-bold text-red-400 mt-1" id="stat-commission">—</p>
+          </div>
+        </div>
+
+        <!-- Status + Verification Banner -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass rounded-xl p-5 flex items-center gap-4">
+            <div id="avail-icon" class="w-12 h-12 rounded-2xl bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-power-off text-slate-500 text-lg"></i>
+            </div>
+            <div class="flex-1">
+              <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Current Status</p>
+              <p class="text-lg font-bold text-white mt-0.5" id="avail-text">Loading…</p>
+            </div>
+          </div>
+          <div id="verif-banner" class="glass rounded-xl p-5 flex items-center gap-4 border border-slate-700/30">
+            <div class="icon-box w-12 h-12 rounded-2xl bg-slate-800/50 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-id-badge text-slate-400 text-lg"></i>
+            </div>
+            <div class="flex-1">
+              <p class="status-label text-xs text-slate-400 font-semibold uppercase tracking-wider">Verification Status</p>
+              <p id="verif-text" class="text-white font-bold text-sm">Loading status...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Requests / Active Trip -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- LEFT PANEL: switches between Active Trip and Live Requests -->
+          <div id="leftPanel" class="glass rounded-2xl p-5 border border-cyan-500/10">
+
+            <!-- ── ACTIVE TRIP VIEW (hidden by default) ── -->
+            <div id="activeTripPanel" class="hidden">
+              <div class="flex justify-between items-center mb-4">
+                <div>
+                  <h3 class="font-bold text-white text-sm uppercase tracking-wider">Active Trip</h3>
+                  <p class="text-[10px] text-slate-400">Complete this trip to accept new rides</p>
+                </div>
+                <span class="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span>
+                  IN PROGRESS
+                </span>
+              </div>
+
+              <!-- Progress Steps -->
+              <div class="step-bar" id="tripSteps">
+                <!-- injected by JS -->
+              </div>
+
+              <!-- Trip Details -->
+              <div id="activeTripDetails" class="rounded-xl bg-slate-800/40 border border-slate-700/40 p-4 mb-4 space-y-2">
+                <div class="shimmer h-4 rounded w-3/4"></div>
+                <div class="shimmer h-4 rounded w-1/2"></div>
+              </div>
+
+              <!-- Action Button -->
+              <div id="activeTripActions" class="space-y-2"></div>
+            </div>
+
+            <!-- ── LIVE REQUESTS VIEW ── -->
+            <div id="liveRequestsPanel">
+              <div class="flex justify-between items-center mb-4">
+                <div>
+                  <h3 class="font-bold text-white text-sm uppercase tracking-wider">Live Requests</h3>
+                  <p class="text-[10px] text-slate-400">Available passengers nearby</p>
+                </div>
+                <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              </div>
+              <div id="availablePassengersList" class="space-y-3">
+                <div class="shimmer h-20 rounded-xl"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT PANEL: Recent Rides -->
+          <div class="glass rounded-2xl p-5 border border-slate-700/30">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="font-bold text-white text-sm uppercase tracking-wider">Recent Rides</h3>
+                <p class="text-[10px] text-slate-400">Your trip history</p>
+              </div>
+            </div>
+            <div id="recentRidesList" class="space-y-3">
+              <div class="shimmer h-14 rounded-xl"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ RIDES ═══ -->
+      <div id="view-rides" class="view-section space-y-4">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">All Rides</h3>
+              <p class="text-xs text-slate-400">Complete ride history & active trips</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-700/50">
+                <th class="text-left py-3">Ride ID</th>
+                <th class="text-left py-3">Rider</th>
+                <th class="text-left py-3">Pickup</th>
+                <th class="text-left py-3">Dropoff</th>
+                <th class="text-left py-3">Status</th>
+                <th class="text-left py-3">Fare</th>
+                <th class="text-left py-3">Date</th>
+                <th class="text-left py-3">Actions</th>
+              </tr></thead>
+              <tbody id="ridesBody" class="text-slate-300">
+                <tr><td colspan="8" class="py-4 text-center text-slate-500">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ EARNINGS ═══ -->
+      <div id="view-earnings" class="view-section space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="glass rounded-xl p-5 border border-emerald-500/10">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Gross Earnings</p>
+            <p class="text-3xl font-bold text-white mt-2" id="earn-gross">—</p>
+            <p class="text-xs text-slate-500 mt-1">Before commission</p>
+          </div>
+          <div class="glass rounded-xl p-5 border border-cyan-500/10">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Net Earnings (80%)</p>
+            <p class="text-3xl font-bold text-emerald-400 mt-2" id="earn-net">—</p>
+            <p class="text-xs text-slate-500 mt-1">Your take-home</p>
+          </div>
+          <div class="glass rounded-xl p-5 border border-red-500/10">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Commission (20%)</p>
+            <p class="text-3xl font-bold text-red-400 mt-2" id="earn-comm">—</p>
+            <p class="text-xs text-slate-500 mt-1">Platform fee</p>
+          </div>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between text-xs mb-2">
+            <span class="text-slate-400 font-semibold">Net vs Commission split</span>
+            <span class="text-cyan-400 font-mono">80% / 20%</span>
+          </div>
+          <div class="earnings-bar">
+            <div class="earnings-fill" id="earningsBar" style="width:80%"></div>
+          </div>
+          <div class="flex justify-between mt-2 text-[10px] text-slate-500">
+            <span>Your earnings</span><span>Platform</span>
+          </div>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-4">Earnings History</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-700/50">
+                <th class="text-left py-3">Ride ID</th>
+                <th class="text-left py-3">Rider</th>
+                <th class="text-left py-3">Gross Fare</th>
+                <th class="text-left py-3">Net (80%)</th>
+                <th class="text-left py-3">Date</th>
+              </tr></thead>
+              <tbody id="earningsBody" class="text-slate-300">
+                <tr><td colspan="5" class="py-4 text-center text-slate-500">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ VEHICLES ═══ -->
+      <div id="view-vehicles" class="view-section space-y-5">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">My Vehicles</h3>
+              <p class="text-xs text-slate-400">Registered vehicles for ride acceptance</p>
+            </div>
+            <button onclick="showVehicleModal()" class="btn-primary text-white text-xs font-semibold px-4 py-2 rounded-lg">
+              <i class="fas fa-plus mr-1"></i>Add Vehicle
+            </button>
+          </div>
+          <div id="vehicleCards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="shimmer h-32 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PAYOUTS ═══ -->
+      <div id="view-payouts" class="view-section space-y-5">
+        <div class="glass rounded-2xl p-5">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-4">Request Payout</h3>
+          <div class="flex gap-4 items-end">
+            <div class="flex-1">
+              <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Amount (PKR)</label>
+              <input id="payout_amount" type="number" placeholder="Enter amount" min="100"
+                class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+            </div>
+            <button onclick="requestPayout()" class="btn-success text-white font-semibold px-6 py-3 rounded-xl text-sm">
+              <i class="fas fa-paper-plane mr-2"></i>Request
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 mt-2">Minimum payout: PKR 100. Processed within 2-3 business days.</p>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-4">Payout History</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-700/50">
+                <th class="text-left py-3">Payout ID</th>
+                <th class="text-left py-3">Amount</th>
+                <th class="text-left py-3">Status</th>
+                <th class="text-left py-3">Requested At</th>
+              </tr></thead>
+              <tbody id="payoutsBody" class="text-slate-300">
+                <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE ═══ -->
+      <div id="view-profile" class="view-section">
+        <div class="glass rounded-2xl p-6 max-w-xl">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-5">My Profile</h3>
+          <div id="profileContent" class="space-y-4">
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- Vehicle Modal -->
+<div id="vehicleModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="glass-strong rounded-2xl p-6 w-full max-w-md mx-4" style="border:1px solid rgba(6,182,212,.2)">
+    <h3 class="font-bold text-white mb-4">Add Vehicle</h3>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Make</label>
+          <input id="v_make" placeholder="e.g. Toyota" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Model</label>
+          <input id="v_model" placeholder="e.g. Corolla" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Year</label>
+          <input id="v_year" type="number" placeholder="2022" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Color</label>
+          <input id="v_color" placeholder="White" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">License Plate</label>
+        <input id="v_plate" placeholder="ABC-1234" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Vehicle Type</label>
+        <select id="v_type" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+          <option value="economy">Economy</option>
+          <option value="premium">Premium</option>
+          <option value="bike">Bike</option>
+        </select>
+      </div>
+    </div>
+    <div id="vehicleError" class="hidden text-red-400 text-xs px-1 mt-2"></div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="addVehicle()" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl text-sm">Add Vehicle</button>
+      <button onclick="closeVehicleModal()" class="flex-1 border border-slate-700 text-slate-300 py-3 rounded-xl text-sm hover:border-slate-600 transition">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API   = '/api';
+const token = localStorage.getItem('rf_token');
+const user  = JSON.parse(localStorage.getItem('rf_user') || '{}');
+
+if (!token || user.role !== 'driver') { window.location.href = '/'; }
+document.getElementById('driverName').textContent = user.full_name || 'Driver';
+
+// ── Active trip state ─────────────────────────────────────────
+// Tracks the currently active ride (accepted / en_route / in_progress)
+let activeTrip = null;
+
+// Ordered steps for the progression bar
+const TRIP_STEPS = [
+  { key: 'accepted',    label: 'Accepted' },
+  { key: 'en_route',    label: 'En Route' },
+  { key: 'in_progress', label: 'On Trip' },
+  { key: 'completed',   label: 'Finished' }
+];
+
+// Logic: Accepted -> (Arrived) -> En Route -> (Start) -> In Progress -> (Finish) -> Completed
+const NEXT_ACTION = {
+  accepted: { 
+    next: 'en_route',    
+    label: '<i class="fas fa-location-arrow mr-2"></i>Arrived at Pickup', 
+    cls: 'bg-amber-500 hover:bg-amber-400 text-white' 
+  },
+  en_route: { 
+    next: 'in_progress', 
+    label: '<i class="fas fa-play mr-2"></i>Start Trip', 
+    cls: 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/20' 
+  },
+  in_progress: { 
+    next: 'completed',   
+    label: '<i class="fas fa-flag-checkered mr-2"></i>Complete Trip', 
+    cls: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' 
+  }
+};
+const ACTIVE_STATUSES = new Set(['accepted', 'en_route', 'in_progress']);
+
+// ── Utilities ─────────────────────────────────────────────────
+const fmt = (num) => 'PKR ' + parseFloat(num || 0).toLocaleString();
+
+const statusBadge = s => {
+  const m = {
+    active:'bg-emerald-500/15 text-emerald-400', available:'bg-emerald-500/15 text-emerald-400',
+    verified:'bg-emerald-500/15 text-emerald-400', approved:'bg-emerald-500/15 text-emerald-400',
+    suspended:'bg-yellow-500/15 text-yellow-400', pending:'bg-yellow-500/15 text-yellow-400',
+    on_trip:'bg-cyan-500/15 text-cyan-400', in_progress:'bg-cyan-500/15 text-cyan-400',
+    en_route:'bg-yellow-500/15 text-yellow-400', accepted:'bg-purple-500/15 text-purple-400',
+    banned:'bg-red-500/15 text-red-400', rejected:'bg-red-500/15 text-red-400',
+    cancelled:'bg-red-500/15 text-red-400', failed:'bg-red-500/15 text-red-400',
+    offline:'bg-slate-500/15 text-slate-400', completed:'bg-emerald-500/15 text-emerald-400',
+    requested:'bg-blue-500/15 text-blue-400', processing:'bg-yellow-500/15 text-yellow-400',
+    paid:'bg-emerald-500/15 text-emerald-400'
+  };
+  return `<span class="badge ${m[s]||'bg-slate-500/15 text-slate-400'}">${s}</span>`;
+};
+
+async function apiFetch(url, opts = {}) {
+  const r = await fetch(API + url, {
+    ...opts,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers||{}) }
+  });
+  if (r.status === 401 || r.status === 403) { logout(); return null; }
+  const text = await r.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+function nav(view, el) {
+  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active','text-cyan-400'));
+  if (el) el.classList.add('active');
+  const titles = {
+    dashboard:'Driver Dashboard', rides:'My Rides', earnings:'Earnings',
+    vehicles:'My Vehicles', payouts:'Payouts', profile:'My Profile'
+  };
+  document.getElementById('pageTitle').textContent = titles[view] || 'Dashboard';
+  loadView(view);
+}
+
+function loadView(v) {
+  if (v === 'dashboard') loadDashboard();
+  if (v === 'rides')     loadRides();
+  if (v === 'earnings')  loadEarnings();
+  if (v === 'vehicles')  loadVehicles();
+  if (v === 'payouts')   loadPayouts();
+  if (v === 'profile')   loadProfile();
+}
+
+// ── AVAILABILITY ──────────────────────────────────────────────
+let currentAvailability = 'offline';
+
+function setAvailabilityUI(status) {
+  currentAvailability = status;
+  const isOnline = status === 'available' || status === 'on_trip';
+  const isTrip   = status === 'on_trip';
+
+  ['sidebar-dot','mob-dot'].forEach(id => {
+    const d = document.getElementById(id);
+    if (d) { d.className = 'status-dot ' + (isTrip ? 'on_trip' : isOnline ? 'online' : 'offline'); }
+  });
+  ['sidebar-toggle','mob-toggle'].forEach(id => {
+    const t = document.getElementById(id);
+    if (t) { isOnline ? t.classList.add('on') : t.classList.remove('on'); }
+  });
+
+  const txt = document.getElementById('sidebar-status-txt');
+  if (txt) txt.textContent = isOnline ? (isTrip ? 'On Trip' : 'Online') : 'Offline';
+
+  const icon = document.getElementById('avail-icon');
+  const text = document.getElementById('avail-text');
+  if (icon && text) {
+    const colors = { available:'bg-emerald-500/15', on_trip:'bg-cyan-500/15', offline:'bg-slate-700/50' };
+    const iconCls = { available:'text-emerald-400', on_trip:'text-cyan-400', offline:'text-slate-500' };
+    icon.className = `w-12 h-12 rounded-2xl ${colors[status]||'bg-slate-700/50'} flex items-center justify-center flex-shrink-0`;
+    icon.innerHTML = `<i class="fas fa-${status==='available'?'circle-check':status==='on_trip'?'car-side':'power-off'} ${iconCls[status]||'text-slate-500'} text-lg"></i>`;
+    text.textContent = status === 'available' ? 'Available for Rides' : status === 'on_trip' ? 'On a Trip' : 'Offline';
+  }
+}
+
+async function toggleAvailability() {
+  const newStatus = currentAvailability === 'available' ? 'offline' : 'available';
+  const data = await apiFetch('/driver/availability', { method:'PATCH', body: JSON.stringify({ status: newStatus }) });
+  if (data) setAvailabilityUI(newStatus);
+  if(newStatus === 'offline') {
+    const liveRequestsPanel = document.getElementById('liveRequestsPanel');
+    if (liveRequestsPanel) {
+      liveRequestsPanel.classList.add('hidden');
+    }
+  } else {
+    showLiveRequestsPanel();
+  }
+}
+
+// ── LEFT PANEL: Active Trip vs Live Requests ──────────────────
+
+function showActiveTripPanel(ride) {
+  activeTrip = ride;
+  document.getElementById('activeTripPanel').classList.remove('hidden');
+  document.getElementById('liveRequestsPanel').classList.add('hidden');
+  renderActiveTripUI(ride);
+}
+
+function showLiveRequestsPanel() {
+  activeTrip = null;
+  document.getElementById('activeTripPanel').classList.add('hidden');
+  document.getElementById('liveRequestsPanel').classList.remove('hidden');
+}
+
+function renderActiveTripUI(ride) {
+  // ── Steps ──
+  const stepsEl = document.getElementById('tripSteps');
+  const currentIdx = TRIP_STEPS.findIndex(s => s.key === ride.status);
+  stepsEl.innerHTML = TRIP_STEPS.map((step, i) => {
+    let cls = '';
+    if (i < currentIdx) cls = 'done';
+    else if (i === currentIdx) cls = 'active';
+    const check = i < currentIdx ? '<i class="fas fa-check" style="font-size:.5rem"></i>' : (i + 1);
+    return `
+      <div class="step ${cls}">
+        <div class="step-dot">${check}</div>
+        <div class="step-label">${step.label}</div>
+      </div>
+      ${i < TRIP_STEPS.length - 1 ? '' : ''}
+    `;
+  }).join('');
+  // Mark connector lines as done
+  stepsEl.querySelectorAll('.step').forEach((el, i) => {
+    if (i < currentIdx) el.classList.add('done');
+  });
+
+  // ── Trip Details ──
+  document.getElementById('activeTripDetails').innerHTML = `
+    <div class="flex justify-between items-start mb-3">
+      <div>
+        <p class="text-xs font-bold text-white">${ride.rider_name}</p>
+        <p class="text-[10px] text-slate-500 font-mono">Ride #${ride.ride_id}</p>
+      </div>
+      <p class="text-sm font-mono font-bold text-emerald-400">${fmt(ride.fare)}</p>
+    </div>
+    <div class="space-y-1.5">
+      <p class="text-[11px] text-slate-300 flex items-center gap-2">
+        <i class="fas fa-location-dot text-cyan-500 w-3 text-center"></i>
+        <span class="truncate">${ride.pickup}</span>
+      </p>
+      <p class="text-[11px] text-slate-300 flex items-center gap-2">
+        <i class="fas fa-flag-checkered text-red-500 w-3 text-center"></i>
+        <span class="truncate">${ride.dropoff}</span>
+      </p>
+    </div>
+    <div class="mt-3 pt-3 border-t border-slate-700/40 flex items-center gap-2">
+      ${statusBadge(ride.status)}
+      <span class="text-[10px] text-slate-500">Current stage</span>
+    </div>
+  `;
+
+  // ── Action Buttons ──
+  const actionsEl = document.getElementById('activeTripActions');
+  const action = NEXT_ACTION[ride.status];
+
+  if (action) {
+    actionsEl.innerHTML = `
+      <button onclick="advanceActiveTrip(${ride.ride_id}, '${action.next}')"
+        class="${action.cls} w-full text-white font-bold py-3 rounded-xl text-sm transition-all">
+        ${action.label}
+      </button>
+    `;
+  } else if (ride.status === 'completed') {
+    // Shouldn't normally appear here, but safety fallback
+    actionsEl.innerHTML = `<p class="text-center text-emerald-400 text-xs font-semibold py-2">Trip Completed ✓</p>`;
+    setTimeout(() => showLiveRequestsPanel(), 1500);
+  } else {
+    actionsEl.innerHTML = '';
+  }
+}
+
+async function advanceActiveTrip(rideId, nextStatus) {
+  const data = await apiFetch(`/driver/rides/${rideId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: nextStatus })
+  });
+  if (!data) return;
+
+  if (nextStatus === 'completed') {
+    // Trip done — go back to live requests
+    activeTrip = null;
+    showLiveRequestsPanel();
+    // Refresh everything
+    loadDashboard();
+  } else {
+    // Update local state and re-render
+    activeTrip.status = nextStatus;
+    renderActiveTripUI(activeTrip);
+  }
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+async function loadDashboard() {
+  const [profile, earnings, rides, available] = await Promise.all([
+    apiFetch('/driver/profile'),
+    apiFetch('/driver/earnings'),
+    apiFetch('/driver/rides'),
+    apiFetch('/driver/available-rides')
+  ]);
+
+  // 1. Profile, Stats & Verification Banner
+  if (profile) {
+    const update = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    update('stat-trips', profile.total_trips || 0);
+    update('stat-rating', profile.avg_rating ? '★ ' + parseFloat(profile.avg_rating).toFixed(1) : '★ N/A');
+    update('headerRating', profile.avg_rating ? '★ ' + parseFloat(profile.avg_rating).toFixed(1) : '★ N/A');
+    setAvailabilityUI(profile.availability_status || 'offline');
+
+    const vb = document.getElementById('verif-banner');
+    const vt = document.getElementById('verif-text');
+    if (vt && vb) {
+      const vs = profile.verification_status;
+      vt.textContent = vs === 'verified'
+        ? 'Verified — You can accept rides'
+        : vs === 'pending'
+          ? 'Pending admin verification'
+          : 'Rejected — Contact support';
+
+      if (vs === 'verified') {
+        vb.className = "glass rounded-xl p-5 flex items-center gap-4 border border-emerald-500/20 bg-emerald-500/5";
+        vb.querySelector('.icon-box').className = "icon-box w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0";
+        vb.querySelector('i').className = "fas fa-id-badge text-emerald-400 text-lg";
+        vb.querySelector('.status-label').className = "status-label text-xs text-emerald-400 font-semibold uppercase tracking-wider";
+      } else if (vs === 'pending') {
+        vb.className = "glass rounded-xl p-5 flex items-center gap-4 border border-yellow-500/20 bg-yellow-500/5";
+        vb.querySelector('.icon-box').className = "icon-box w-12 h-12 rounded-2xl bg-yellow-500/15 flex items-center justify-center flex-shrink-0";
+        vb.querySelector('i').className = "fas fa-clock text-yellow-400 text-lg";
+        vb.querySelector('.status-label').className = "status-label text-xs text-yellow-400 font-semibold uppercase tracking-wider";
+      } else {
+        vb.className = "glass rounded-xl p-5 flex items-center gap-4 border border-red-500/20 bg-red-500/5";
+        vb.querySelector('.icon-box').className = "icon-box w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0";
+        vb.querySelector('i').className = "fas fa-circle-xmark text-red-400 text-lg";
+        vb.querySelector('.status-label').className = "status-label text-xs text-red-400 font-semibold uppercase tracking-wider";
+      }
+    }
+  }
+
+  // 2. Earnings Summary
+  if (earnings?.summary) {
+    const s = earnings.summary;
+    const netEl = document.getElementById('stat-net');
+    const comEl = document.getElementById('stat-commission');
+    if (netEl) netEl.textContent = fmt(s.net_earnings);
+    if (comEl) comEl.textContent = fmt(s.commission);
+  }
+
+  // 3. Detect any active trip from rides list
+  //    Priority: in_progress > en_route > accepted
+  const existingActive = rides
+    ? rides.find(r => r.status === 'in_progress')
+      || rides.find(r => r.status === 'en_route')
+      || rides.find(r => r.status === 'accepted')
+    : null;
+
+  if (existingActive) {
+    // Normalize en_route → accepted for our 3-step flow display
+    if (existingActive.status === 'en_route') existingActive.status = 'accepted';
+    showActiveTripPanel(existingActive);
+  } else if(currentAvailability === 'available') {
+    showLiveRequestsPanel();
+  }
+    // 4. Live Ride Requests (only shown when no active trip)
+    const availEl = document.getElementById('availablePassengersList');
+    if (availEl) {
+      if (available && available.length > 0) {
+        availEl.innerHTML = available.map(r => `
+          <div class="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/10 hover:border-cyan-500/40 transition-all">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <p class="text-sm font-bold text-white">${r.rider_name}</p>
+                <p class="text-[10px] text-slate-500">${r.time_ago != null ? r.time_ago + ' min ago' : 'Just now'}</p>
+              </div>
+              <p class="text-sm font-mono text-emerald-400 font-bold">${fmt(r.fare)}</p>
+            </div>
+            <div class="space-y-2 mb-4">
+              <p class="text-xs text-slate-300 truncate"><i class="fas fa-location-dot text-cyan-500 mr-2"></i>${r.pickup}</p>
+              <p class="text-xs text-slate-300 truncate"><i class="fas fa-flag-checkered text-red-500 mr-2"></i>${r.destination || r.dropoff}</p>
+            </div>
+            <button onclick="acceptRide(${r.ride_id}, this)"
+                    class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-cyan-900/20">
+              Accept Trip
+            </button>
+          </div>`).join('');
+      } else {
+        availEl.innerHTML = '<div class="py-8 text-center"><i class="fas fa-radar text-slate-600 mb-2 block text-2xl"></i><p class="text-xs text-slate-500 italic">Scanning for passengers...</p></div>';
+      }
+    }
+  
+
+  // 5. Recent Ride History
+  const recentRidesEl = document.getElementById('recentRidesList');
+  if (recentRidesEl && rides) {
+    // Show completed rides in the recent section
+    const recent = rides.filter(r => r.status === 'completed').slice(0, 5);
+    recentRidesEl.innerHTML = recent.length ? recent.map(r => `
+      <div class="ride-card glass rounded-xl p-3.5 flex items-center gap-3 border border-slate-700/30">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-check text-xs text-emerald-400"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-semibold text-white">${r.rider_name || 'Rider'} <span class="font-mono text-cyan-400 font-normal">#${r.ride_id}</span></p>
+          <p class="text-[10px] text-slate-400 truncate">${r.pickup} → ${r.dropoff}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-xs font-bold text-emerald-400">${fmt(r.fare)}</p>
+          <span class="text-[9px] uppercase tracking-tighter px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">completed</span>
+        </div>
+      </div>`).join('')
+    : '<p class="text-center text-slate-500 text-xs py-4 italic">No completed rides yet</p>';
+  }
+
+}
+// ── ACCEPT RIDE ───────────────────────────────────────────────
+async function acceptRide(rideId, btn) {
+  // Guard: don't accept if there's already an active trip
+  if (activeTrip) {
+    alert('You already have an active trip. Complete it before accepting a new one.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Accepting...';
+
+  const data = await apiFetch(`/driver/rides/${rideId}/accept`, { method: 'PATCH' });
+
+  if (!data || data.error) {
+    alert(data?.error || 'Could not accept ride. It may have been taken.');
+    btn.disabled = false;
+    btn.textContent = 'Accept Trip';
+    return;
+  }
+
+  // Fetch the accepted ride details to populate Active Trip panel
+  const rides = await apiFetch('/driver/rides');
+  const accepted = rides ? rides.find(r => r.ride_id == rideId) : null;
+
+  if (accepted) {
+    showActiveTripPanel(accepted);
+  }
+}
+
+// ── RIDES VIEW ────────────────────────────────────────────────
+const rideTransitions = {
+  requested:   ['accepted','cancelled'],
+  accepted:    ['in_progress','cancelled'],
+  en_route:    ['in_progress','cancelled'],
+  in_progress: ['completed'],
+  completed:   [],
+  cancelled:   []
+};
+
+async function loadRides() {
+  const data = await apiFetch('/driver/rides');
+  if (!data) return;
+  document.getElementById('ridesBody').innerHTML = data.length
+    ? data.map(r => {
+        const next = rideTransitions[r.status] || [];
+        const actions = next.map(s => `
+          <button onclick="updateRideStatus(${r.ride_id},'${s}')"
+            class="text-[10px] ${s==='cancelled'?'bg-red-500/15 text-red-400 hover:bg-red-500/25':s==='completed'?'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25':'bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25'} px-2 py-1 rounded mr-1 transition">
+            ${s}
+          </button>`).join('');
+        return `<tr class="tr-hover border-b border-slate-800/40">
+          <td class="py-3 font-mono text-cyan-400">#${r.ride_id}</td>
+          <td>${r.rider_name}</td>
+          <td class="text-slate-400 max-w-xs truncate">${r.pickup}</td>
+          <td class="text-slate-400 max-w-xs truncate">${r.dropoff}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td class="font-semibold">${r.fare > 0 ? fmt(r.fare) : '—'}</td>
+          <td class="text-slate-500">${new Date(r.created_at).toLocaleDateString()}</td>
+          <td class="py-2">${actions || '<span class="text-slate-600 text-[10px]">—</span>'}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="8" class="py-8 text-center text-slate-500 italic">No rides found</td></tr>';
+}
+
+async function updateRideStatus(rideId, status) {
+  const data = await apiFetch(`/driver/rides/${rideId}/status`, { method:'PATCH', body: JSON.stringify({ status }) });
+  if (data) loadRides();
+}
+
+// ── EARNINGS ─────────────────────────────────────────────────
+async function loadEarnings() {
+  const data = await apiFetch('/driver/earnings');
+  if (!data) return;
+  const s = data.summary || {};
+  document.getElementById('earn-gross').textContent = fmt(s.gross_earnings);
+  document.getElementById('earn-net').textContent   = fmt(s.net_earnings);
+  document.getElementById('earn-comm').textContent  = fmt(s.commission);
+
+  const history = data.history || [];
+  document.getElementById('earningsBody').innerHTML = history.length
+    ? history.map(r => `
+        <tr class="tr-hover border-b border-slate-800/40">
+          <td class="py-3 font-mono text-cyan-400">#${r.ride_id}</td>
+          <td>${r.rider_name}</td>
+          <td>${fmt(r.fare)}</td>
+          <td class="text-emerald-400 font-semibold">${fmt(r.fare * 0.8)}</td>
+          <td class="text-slate-400">${new Date(r.created_at).toLocaleDateString()}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="5" class="py-8 text-center text-slate-500 italic">No completed rides yet</td></tr>';
+}
+
+// ── VEHICLES ─────────────────────────────────────────────────
+async function loadVehicles() {
+  const data = await apiFetch('/driver/vehicles');
+  if (!data) return;
+  document.getElementById('vehicleCards').innerHTML = data.length
+    ? data.map(v => `
+        <div class="glass rounded-xl p-5 border border-slate-700/30 hover:border-cyan-500/20 transition">
+          <div class="flex justify-between items-start mb-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center">
+              <i class="fas fa-${v.vehicle_type==='bike'?'motorcycle':'car'} text-slate-400"></i>
+            </div>
+            ${v.is_verified ? statusBadge('verified') : statusBadge('pending')}
+          </div>
+          <p class="text-sm font-bold text-white">${v.make} ${v.model} <span class="text-slate-400 font-normal">(${v.year})</span></p>
+          <p class="text-xs text-slate-400 mt-1">${v.color} · <span class="font-mono text-cyan-400">${v.license_plate}</span></p>
+          <p class="text-[10px] text-slate-500 mt-1 capitalize">${v.vehicle_type}</p>
+          ${!v.is_verified ? '<p class="text-[10px] text-yellow-400 mt-2"><i class="fas fa-clock mr-1"></i>Awaiting admin verification</p>' : ''}
+        </div>`).join('')
+    : '<div class="col-span-2 py-8 text-center text-slate-500 italic">No vehicles registered yet.</div>';
+}
+
+function showVehicleModal() { document.getElementById('vehicleModal').classList.remove('hidden'); }
+function closeVehicleModal() { document.getElementById('vehicleModal').classList.add('hidden'); }
+
+async function addVehicle() {
+  const errEl = document.getElementById('vehicleError');
+  const body = {
+    make: document.getElementById('v_make').value.trim(),
+    model: document.getElementById('v_model').value.trim(),
+    year: parseInt(document.getElementById('v_year').value),
+    color: document.getElementById('v_color').value.trim(),
+    license_plate: document.getElementById('v_plate').value.trim().toUpperCase(),
+    vehicle_type: document.getElementById('v_type').value
+  };
+  if (!body.make || !body.model || !body.year || !body.license_plate) {
+    errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); return;
+  }
+  const data = await apiFetch('/driver/vehicles', { method:'POST', body: JSON.stringify(body) });
+  if (data?.vehicle_id) {
+    closeVehicleModal();
+    loadVehicles();
+    ['v_make','v_model','v_year','v_color','v_plate'].forEach(id => document.getElementById(id).value = '');
+    errEl.classList.add('hidden');
+  }
+}
+
+// ── PAYOUTS ──────────────────────────────────────────────────
+async function loadPayouts() {
+  const data = await apiFetch('/driver/payouts');
+  if (!data) return;
+  document.getElementById('payoutsBody').innerHTML = data.length
+    ? data.map(p => `
+        <tr class="tr-hover border-b border-slate-800/40">
+          <td class="py-3 font-mono text-cyan-400">#${p.payout_id}</td>
+          <td class="font-semibold text-white">${fmt(p.amount)}</td>
+          <td>${statusBadge(p.status || 'processing')}</td>
+          <td class="text-slate-400">${new Date(p.requested_at).toLocaleString()}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="4" class="py-8 text-center text-slate-500 italic">No payout history</td></tr>';
+}
+
+async function requestPayout() {
+  const amount = parseFloat(document.getElementById('payout_amount').value);
+  if (!amount || amount < 100) { alert('Minimum payout is PKR 100'); return; }
+  const data = await apiFetch('/driver/payouts', { method:'POST', body: JSON.stringify({ amount }) });
+  if (data?.payout_id) {
+    document.getElementById('payout_amount').value = '';
+    loadPayouts();
+  }
+}
+
+// ── PROFILE ──────────────────────────────────────────────────
+async function loadProfile() {
+  const data = await apiFetch('/driver/profile');
+  if (!data) return;
+  document.getElementById('profileContent').innerHTML = `
+    <div class="grid grid-cols-2 gap-4">
+      ${[
+        ['Full Name', data.full_name],
+        ['Email', data.email],
+        ['Phone', data.phone],
+        ['License No.', data.license_number],
+        ['CNIC', data.cnic_no],
+        ['Verification', data.verification_status],
+        ['Total Trips', data.total_trips],
+        ['Avg Rating', data.avg_rating ? '★ ' + parseFloat(data.avg_rating).toFixed(2) : 'N/A']
+      ].map(([label, val]) => `
+        <div class="col-span-${label==='Email'||label==='Full Name'?2:1}">
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">${label}</p>
+          <p class="text-sm font-semibold text-white mt-1">${val || '—'}</p>
+        </div>`).join('')}
+    </div>`;
+}
+
+function refreshAll() { loadView(document.querySelector('.view-section.active')?.id?.replace('view-','')||'dashboard'); }
+function logout() { localStorage.clear(); window.location.href = '/'; }
+
+// Initial load
+loadDashboard();
+</script>
+</body>
+</html>

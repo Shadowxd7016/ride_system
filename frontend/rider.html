@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RideFlow — Rider Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *{scrollbar-width:thin;scrollbar-color:#334155 #0f172a}
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#0f172a}::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+    body{font-family:'Inter',sans-serif;background:#0b1120;color:#e2e8f0}
+    .glass{background:rgba(30,41,59,.6);backdrop-filter:blur(16px);border:1px solid rgba(148,163,184,.08)}
+    .glass-strong{background:rgba(30,41,59,.85);backdrop-filter:blur(20px);border:1px solid rgba(148,163,184,.12)}
+    .nav-item{transition:all .2s;cursor:pointer}
+    .nav-item.active{color:#22d3ee;background:rgba(6,182,212,.08);border-left:3px solid #06b6d4}
+    .nav-item:hover:not(.active){color:#94a3b8;background:rgba(148,163,184,.05)}
+    .view-section{display:none}.view-section.active{display:block;animation:fadeIn .3s ease}
+    .badge{font-size:.65rem;padding:.2rem .6rem;border-radius:9999px;font-weight:600}
+    .btn-primary{background:linear-gradient(135deg,#06b6d4,#0891b2);transition:all .3s}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(6,182,212,.4)}
+    .btn-success{background:linear-gradient(135deg,#10b981,#059669);transition:all .3s}
+    .btn-success:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(16,185,129,.4)}
+    .btn-violet{background:linear-gradient(135deg,#8b5cf6,#7c3aed);transition:all .3s}
+    .btn-violet:hover{transform:translateY(-1px);box-shadow:0 10px 25px -5px rgba(139,92,246,.4)}
+    .tr-hover:hover{background:rgba(6,182,212,.03)}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:#06b6d4;box-shadow:0 0 0 3px rgba(6,182,212,.15)}
+    .ride-card{transition:all .2s;cursor:pointer}
+    .ride-card:hover{border-color:rgba(6,182,212,.3);background:rgba(6,182,212,.03)}
+    .promo-card{transition:all .2s;cursor:pointer}
+    .promo-card:hover{border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.05)}
+    .promo-card.selected{border-color:#8b5cf6;background:rgba(139,92,246,.1)}
+    .star-btn{transition:all .15s;cursor:pointer;font-size:1.4rem}
+    .star-btn:hover,.star-btn.on{color:#f59e0b}
+    .star-btn{color:#334155}
+    .shimmer{background:linear-gradient(90deg,rgba(30,41,59,.6) 25%,rgba(51,65,85,.6) 50%,rgba(30,41,59,.6) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .wallet-bar{height:6px;border-radius:3px;background:rgba(16,185,129,.15)}
+    .wallet-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#10b981,#06b6d4);transition:width 1s ease}
+    .step{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;border:1px solid rgba(148,163,184,.08);background:rgba(30,41,59,.4);transition:all .2s}
+    .step.active-step{border-color:rgba(6,182,212,.3);background:rgba(6,182,212,.06)}
+    .step-num{width:1.75rem;height:1.75rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;background:rgba(100,116,139,.2);color:#64748b}
+    .step.active-step .step-num{background:rgba(6,182,212,.2);color:#22d3ee}
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex">
+
+<!-- SIDEBAR -->
+<aside class="w-20 lg:w-64 bg-slate-900/90 border-r border-slate-800/80 flex flex-col flex-shrink-0">
+  <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800/80">
+    <div class="w-9 h-9 rounded-xl bg-cyan-500/15 flex items-center justify-center border border-cyan-500/20">
+      <i class="fas fa-wave-square text-cyan-400 text-sm"></i>
+    </div>
+    <span class="hidden lg:block ml-3 font-bold text-white">RideFlow</span>
+  </div>
+  <nav class="flex-1 py-6 space-y-1 overflow-y-auto">
+    <div class="nav-item active flex items-center px-4 lg:px-6 py-3 text-sm font-medium" onclick="nav('dashboard',this)">
+      <i class="fas fa-grid-2 w-5 text-center"></i><span class="hidden lg:block ml-3">Dashboard</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('book',this)">
+      <i class="fas fa-plus-circle w-5 text-center"></i><span class="hidden lg:block ml-3">Book a Ride</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('rides',this)">
+      <i class="fas fa-route w-5 text-center"></i><span class="hidden lg:block ml-3">My Rides</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('wallet',this)">
+      <i class="fas fa-wallet w-5 text-center"></i><span class="hidden lg:block ml-3">Wallet</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('promos',this)">
+      <i class="fas fa-tag w-5 text-center"></i><span class="hidden lg:block ml-3">Promo Codes</span>
+    </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('profile',this)">
+      <i class="fas fa-circle-user w-5 text-center"></i><span class="hidden lg:block ml-3">Profile</span>
+    </div>
+  </nav>
+  <div class="p-4 border-t border-slate-800/80">
+    <button onclick="logout()" class="w-full flex items-center justify-center lg:justify-start px-2 py-2.5 text-slate-400 hover:text-red-400 rounded-xl transition text-sm font-medium">
+      <i class="fas fa-arrow-right-from-bracket w-5 text-center"></i><span class="hidden lg:block ml-3">Logout</span>
+    </button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 flex flex-col min-w-0">
+  <header class="h-16 glass-strong border-b border-slate-800/60 flex items-center justify-between px-6 lg:px-8 flex-shrink-0">
+    <div>
+      <h1 class="text-lg font-bold text-white" id="pageTitle">Rider Dashboard</h1>
+      <p class="text-[10px] text-slate-500">Rider Portal | Book & Track Rides</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="nav('book', document.querySelectorAll('.nav-item')[1])" class="btn-primary text-white text-xs font-semibold px-4 py-2 rounded-xl hidden md:flex items-center gap-2">
+        <i class="fas fa-plus"></i> Book Ride
+      </button>
+      <div class="glass rounded-xl pl-2 pr-4 py-1.5 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+          <i class="fas fa-user text-violet-400 text-sm"></i>
+        </div>
+        <div class="hidden md:block">
+          <p class="text-sm font-semibold text-white leading-tight" id="riderName">Rider</p>
+          <p class="text-[10px] text-emerald-400 font-semibold" id="headerWallet">PKR —</p>
+        </div>
+      </div>
+      <button onclick="refreshAll()" class="w-9 h-9 rounded-xl glass flex items-center justify-center text-slate-400 hover:text-cyan-400 transition">
+        <i class="fas fa-rotate-right text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-6 lg:p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div id="view-dashboard" class="view-section active space-y-6">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Rides</p>
+            <p class="text-2xl font-bold text-white mt-1" id="stat-rides">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Spent</p>
+            <p class="text-2xl font-bold text-cyan-400 mt-1" id="stat-spent">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Wallet Balance</p>
+            <p class="text-2xl font-bold text-emerald-400 mt-1" id="stat-wallet">—</p>
+          </div>
+          <div class="glass rounded-xl p-4 hover:border-cyan-500/20 transition">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Account Status</p>
+            <p class="text-xl font-bold mt-1" id="stat-status">—</p>
+          </div>
+        </div>
+
+        <!-- Quick action cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button onclick="nav('book', document.querySelectorAll('.nav-item')[1])"
+            class="glass rounded-2xl p-5 text-left hover:border-cyan-500/25 transition group">
+            <div class="w-11 h-11 rounded-xl bg-cyan-500/15 flex items-center justify-center mb-3 group-hover:bg-cyan-500/25 transition">
+              <i class="fas fa-location-crosshairs text-cyan-400"></i>
+            </div>
+            <p class="font-bold text-white text-sm">Book a Ride</p>
+            <p class="text-xs text-slate-400 mt-1">Choose pickup & dropoff to get started</p>
+          </button>
+          <button onclick="nav('wallet', document.querySelectorAll('.nav-item')[3])"
+            class="glass rounded-2xl p-5 text-left hover:border-emerald-500/25 transition group">
+            <div class="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-3 group-hover:bg-emerald-500/25 transition">
+              <i class="fas fa-plus text-emerald-400"></i>
+            </div>
+            <p class="font-bold text-white text-sm">Top Up Wallet</p>
+            <p class="text-xs text-slate-400 mt-1">Add funds to pay for your rides</p>
+          </button>
+          <button onclick="nav('promos', document.querySelectorAll('.nav-item')[4])"
+            class="glass rounded-2xl p-5 text-left hover:border-violet-500/25 transition group">
+            <div class="w-11 h-11 rounded-xl bg-violet-500/15 flex items-center justify-center mb-3 group-hover:bg-violet-500/25 transition">
+              <i class="fas fa-tag text-violet-400"></i>
+            </div>
+            <p class="font-bold text-white text-sm">View Promos</p>
+            <p class="text-xs text-slate-400 mt-1">Active discount codes available now</p>
+          </button>
+        </div>
+
+        <!-- Recent rides -->
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">Recent Rides</h3>
+              <p class="text-xs text-slate-400">Your latest trips</p>
+            </div>
+            <button onclick="nav('rides', document.querySelectorAll('.nav-item')[2])" class="text-xs text-cyan-400 hover:text-cyan-300">View all →</button>
+          </div>
+          <div id="recentRidesList" class="space-y-3">
+            <div class="shimmer h-16 rounded-xl"></div>
+            <div class="shimmer h-16 rounded-xl"></div>
+            <div class="shimmer h-16 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ BOOK A RIDE ═══ -->
+      <div id="view-book" class="view-section space-y-5">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Booking form -->
+          <div class="lg:col-span-2 glass rounded-2xl p-5 space-y-5">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">Book a Ride</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Select locations, apply promo, and confirm</p>
+            </div>
+
+            <!-- Steps -->
+            <div class="space-y-2">
+              <div class="step active-step" id="step1">
+                <div class="step-num">1</div>
+                <div><p class="text-xs font-semibold text-white">Choose Locations</p><p class="text-[10px] text-slate-400">Pickup and dropoff</p></div>
+              </div>
+              <div class="step" id="step2">
+                <div class="step-num">2</div>
+                <div><p class="text-xs font-semibold text-slate-400">Apply Promo (Optional)</p></div>
+              </div>
+              <div class="step" id="step3">
+                <div class="step-num">3</div>
+                <div><p class="text-xs font-semibold text-slate-400">Confirm & Pay</p></div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <i class="fas fa-circle-dot text-emerald-400 mr-1"></i>Pickup Location
+                </label>
+                <select id="book_pickup" onchange="updateBookStep()" class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+                  <option value="">Select pickup…</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <i class="fas fa-location-dot text-red-400 mr-1"></i>Dropoff Location
+                </label>
+                <select id="book_dropoff" onchange="updateBookStep()" class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+                  <option value="">Select dropoff…</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Promo Code (optional)</label>
+                <div class="flex gap-2">
+                  <input id="book_promo" type="text" placeholder="e.g. SAVE20"
+                    class="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white uppercase placeholder-slate-500">
+                  <button onclick="applyPromo()" class="btn-violet text-white text-xs font-semibold px-4 py-2 rounded-xl">Apply</button>
+                </div>
+                <p id="promoMsg" class="text-[10px] mt-1 hidden"></p>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Schedule (optional)</label>
+                <input id="book_scheduled" type="datetime-local"
+                  class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Payment Method</label>
+                <div class="flex gap-3">
+                  <label class="flex-1 flex items-center gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800/40 cursor-pointer hover:border-cyan-500/30 transition">
+                    <input type="radio" name="pay_method" value="cash" checked class="accent-cyan-400"> <span class="text-sm text-slate-300">Cash</span>
+                  </label>
+                  <label class="flex-1 flex items-center gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800/40 cursor-pointer hover:border-cyan-500/30 transition">
+                    <input type="radio" name="pay_method" value="wallet" class="accent-cyan-400"> <span class="text-sm text-slate-300">Wallet</span>
+                  </label>
+                  <label class="flex-1 flex items-center gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800/40 cursor-pointer hover:border-cyan-500/30 transition">
+                    <input type="radio" name="pay_method" value="card" class="accent-cyan-400"> <span class="text-sm text-slate-300">Card</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="bookError" class="hidden text-red-400 text-xs px-1"></div>
+            <button onclick="bookRide()" id="bookBtn"
+              class="w-full btn-primary text-white font-semibold py-3.5 rounded-xl shadow-lg text-sm">
+              <i class="fas fa-location-crosshairs mr-2"></i>Request Ride
+            </button>
+          </div>
+
+          <!-- Fare estimator panel -->
+          <div class="space-y-4">
+            <div class="glass rounded-2xl p-5">
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-4">Fare Estimate</h3>
+              <div id="fareEstimate" class="text-center py-6 text-slate-500">
+                <i class="fas fa-calculator text-3xl mb-3 block opacity-30"></i>
+                <p class="text-xs">Select locations to see estimate</p>
+              </div>
+            </div>
+            <div class="glass rounded-2xl p-5">
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-3">Your Wallet</h3>
+              <p class="text-2xl font-bold text-emerald-400" id="book-wallet-bal">—</p>
+              <p class="text-xs text-slate-500 mt-1">Available balance</p>
+              <button onclick="nav('wallet', document.querySelectorAll('.nav-item')[3])" class="mt-3 text-xs text-cyan-400 hover:text-cyan-300">
+                Top up →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ MY RIDES ═══ -->
+      <div id="view-rides" class="view-section space-y-4">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">All Rides</h3>
+              <p class="text-xs text-slate-400">Complete ride history with payments</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-700/50">
+                <th class="text-left py-3">Ride ID</th>
+                <th class="text-left py-3">Pickup → Dropoff</th>
+                <th class="text-left py-3">Driver</th>
+                <th class="text-left py-3">Vehicle</th>
+                <th class="text-left py-3">Status</th>
+                <th class="text-left py-3">Fare</th>
+                <th class="text-left py-3">Payment</th>
+                <th class="text-left py-3">Actions</th>
+              </tr></thead>
+              <tbody id="ridesBody" class="text-slate-300">
+                <tr><td colspan="8" class="py-6 text-center text-slate-500">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ WALLET ═══ -->
+      <div id="view-wallet" class="view-section space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass rounded-2xl p-6 border border-emerald-500/10">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Wallet Balance</p>
+            <p class="text-4xl font-bold text-emerald-400 mt-2" id="wallet-balance">—</p>
+            <div class="wallet-bar mt-3"><div class="wallet-fill" id="walletBar" style="width:60%"></div></div>
+            <p class="text-[10px] text-slate-500 mt-2">Available for rides</p>
+          </div>
+          <div class="glass rounded-2xl p-6">
+            <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-4">Top Up Wallet</p>
+            <div class="flex gap-2 mb-3 flex-wrap">
+              <button onclick="setTopup(500)" class="text-xs border border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-white px-3 py-1.5 rounded-lg transition">+500</button>
+              <button onclick="setTopup(1000)" class="text-xs border border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-white px-3 py-1.5 rounded-lg transition">+1,000</button>
+              <button onclick="setTopup(2000)" class="text-xs border border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-white px-3 py-1.5 rounded-lg transition">+2,000</button>
+              <button onclick="setTopup(5000)" class="text-xs border border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-white px-3 py-1.5 rounded-lg transition">+5,000</button>
+            </div>
+            <div class="flex gap-3">
+              <input id="topup_amount" type="number" placeholder="Custom amount (PKR)" min="100"
+                class="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+              <button onclick="topupWallet()" class="btn-success text-white font-semibold px-5 py-2 rounded-xl text-sm">
+                <i class="fas fa-plus mr-1"></i>Add
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-2">Minimum top-up: PKR 100</p>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-5">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-4">Transaction History</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead><tr class="text-slate-400 border-b border-slate-700/50">
+                <th class="text-left py-3">Payment ID</th>
+                <th class="text-left py-3">Ride</th>
+                <th class="text-left py-3">Route</th>
+                <th class="text-left py-3">Amount</th>
+                <th class="text-left py-3">Discount</th>
+                <th class="text-left py-3">Method</th>
+                <th class="text-left py-3">Status</th>
+                <th class="text-left py-3">Date</th>
+              </tr></thead>
+              <tbody id="walletBody" class="text-slate-300">
+                <tr><td colspan="8" class="py-6 text-center text-slate-500">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROMOS ═══ -->
+      <div id="view-promos" class="view-section space-y-5">
+        <div class="glass rounded-2xl p-5">
+          <div class="mb-5">
+            <h3 class="font-bold text-white text-sm uppercase tracking-wider">Active Promo Codes</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Apply these codes when booking a ride</p>
+          </div>
+          <div id="promoCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="shimmer h-28 rounded-xl"></div>
+            <div class="shimmer h-28 rounded-xl"></div>
+            <div class="shimmer h-28 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE ═══ -->
+      <div id="view-profile" class="view-section space-y-5">
+        <div class="glass rounded-2xl p-6 max-w-xl">
+          <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-5">My Profile</h3>
+          <div id="profileContent" class="space-y-4">
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ── PAYMENT MODAL ─────────────────────────────────────────── -->
+<div id="payModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4" style="border:1px solid rgba(6,182,212,.2)">
+    <h3 class="font-bold text-white mb-1">Make Payment</h3>
+    <p class="text-xs text-slate-400 mb-5">Ride <span id="pay_ride_label" class="font-mono text-cyan-400"></span></p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Amount (PKR)</label>
+        <input id="pay_amount" type="number" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Method</label>
+        <select id="pay_method" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+          <option value="cash">Cash</option><option value="wallet">Wallet</option><option value="card">Card</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Discount (PKR, optional)</label>
+        <input id="pay_discount" type="number" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+      </div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="submitPayment()" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl text-sm">Pay Now</button>
+      <button onclick="closePayModal()" class="flex-1 border border-slate-700 text-slate-300 py-3 rounded-xl text-sm hover:border-slate-600 transition">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── RATING MODAL ─────────────────────────────────────────── -->
+<div id="ratingModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4" style="border:1px solid rgba(251,191,36,.2)">
+    <h3 class="font-bold text-white mb-1">Rate Your Ride</h3>
+    <p class="text-xs text-slate-400 mb-5">Ride <span id="rate_ride_label" class="font-mono text-cyan-400"></span> · Driver: <span id="rate_driver_label" class="text-white"></span></p>
+    <div class="flex gap-2 justify-center mb-4">
+      <span class="star-btn" data-val="1" onclick="setStar(1)">★</span>
+      <span class="star-btn" data-val="2" onclick="setStar(2)">★</span>
+      <span class="star-btn" data-val="3" onclick="setStar(3)">★</span>
+      <span class="star-btn" data-val="4" onclick="setStar(4)">★</span>
+      <span class="star-btn" data-val="5" onclick="setStar(5)">★</span>
+    </div>
+    <textarea id="rate_comment" rows="3" placeholder="Optional comment…"
+      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white resize-none"></textarea>
+    <div class="flex gap-3 mt-4">
+      <button onclick="submitRating()" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl text-sm">Submit</button>
+      <button onclick="closeRatingModal()" class="flex-1 border border-slate-700 text-slate-300 py-3 rounded-xl text-sm hover:border-slate-600 transition">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── COMPLAINT MODAL ──────────────────────────────────────── -->
+<div id="complaintModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="glass-strong rounded-2xl p-6 w-full max-w-sm mx-4" style="border:1px solid rgba(239,68,68,.2)">
+    <h3 class="font-bold text-white mb-1">File a Complaint</h3>
+    <p class="text-xs text-slate-400 mb-5">Ride <span id="comp_ride_label" class="font-mono text-cyan-400"></span></p>
+    <textarea id="comp_desc" rows="4" placeholder="Describe the issue…"
+      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white resize-none"></textarea>
+    <div class="flex gap-3 mt-4">
+      <button onclick="submitComplaint()" class="flex-1 bg-red-500/80 hover:bg-red-500 text-white font-semibold py-3 rounded-xl text-sm transition">Submit</button>
+      <button onclick="closeComplaintModal()" class="flex-1 border border-slate-700 text-slate-300 py-3 rounded-xl text-sm hover:border-slate-600 transition">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API   = '/api';
+const token = localStorage.getItem('rf_token');
+const user  = JSON.parse(localStorage.getItem('rf_user') || '{}');
+if (!token || user.role !== 'rider') { window.location.href = '/'; }
+document.getElementById('riderName').textContent = user.full_name || 'Rider';
+
+const FARE_BASE   = 50;   // PKR flat base fare
+const FARE_PER_KM = 20;   // PKR per kilometre
+
+const fmt = n => 'PKR ' + parseFloat(n || 0).toLocaleString();
+
+// ── Haversine formula ─────────────────────────────────────────
+function getDistanceKM(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calcFare(lat1, lon1, lat2, lon2) {
+  const km = getDistanceKM(lat1, lon1, lat2, lon2);
+  return { km, fare: Math.round(FARE_BASE + km * FARE_PER_KM) };
+}
+
+const statusBadge = s => {
+  const m = {
+    active:'bg-emerald-500/15 text-emerald-400', completed:'bg-emerald-500/15 text-emerald-400',
+    paid:'bg-emerald-500/15 text-emerald-400', verified:'bg-emerald-500/15 text-emerald-400',
+    suspended:'bg-yellow-500/15 text-yellow-400', pending:'bg-yellow-500/15 text-yellow-400',
+    on_trip:'bg-cyan-500/15 text-cyan-400', in_progress:'bg-cyan-500/15 text-cyan-400',
+    en_route:'bg-yellow-500/15 text-yellow-400', accepted:'bg-purple-500/15 text-purple-400',
+    requested:'bg-blue-500/15 text-blue-400', processing:'bg-yellow-500/15 text-yellow-400',
+    cancelled:'bg-red-500/15 text-red-400', failed:'bg-red-500/15 text-red-400',
+    banned:'bg-red-500/15 text-red-400', offline:'bg-slate-500/15 text-slate-400', cash:'bg-slate-500/15 text-slate-400',
+    wallet:'bg-cyan-500/15 text-cyan-400', card:'bg-violet-500/15 text-violet-400'
+  };
+  return `<span class="badge ${m[s] || 'bg-slate-500/15 text-slate-400'}">${s || '—'}</span>`;
+};
+
+async function apiFetch(url, opts = {}) {
+  const r = await fetch(API + url, {
+    ...opts,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if (r.status === 401 || r.status === 403) { logout(); return null; }
+  const text = await r.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+function nav(view, el) {
+  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active', 'text-cyan-400'));
+  if (el) el.classList.add('active');
+  const titles = { dashboard: 'Rider Dashboard', book: 'Book a Ride', rides: 'My Rides', wallet: 'Wallet', promos: 'Promo Codes', profile: 'Profile' };
+  document.getElementById('pageTitle').textContent = titles[view] || 'Dashboard';
+  loadView(view);
+}
+
+function loadView(v) {
+  if (v === 'dashboard') loadDashboard();
+  if (v === 'book')      loadBookForm();
+  if (v === 'rides')     loadRides();
+  if (v === 'wallet')    loadWallet();
+  if (v === 'promos')    loadPromos();
+  if (v === 'profile')   loadProfile();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+async function loadDashboard() {
+  const [profile, rides] = await Promise.all([
+    apiFetch('/rider/profile'),
+    apiFetch('/rider/rides')
+  ]);
+  if (profile) {
+    document.getElementById('stat-wallet').textContent = fmt(profile.wallet_balance);
+    document.getElementById('headerWallet').textContent = fmt(profile.wallet_balance);
+    document.getElementById('stat-status').innerHTML = statusBadge(profile.account_status);
+  }
+  if (rides) {
+    document.getElementById('stat-rides').textContent = rides.length;
+    const spent = rides.filter(r => r.status === 'completed').reduce((s, r) => s + parseFloat(r.fare || 0), 0);
+    document.getElementById('stat-spent').textContent = fmt(spent);
+
+    const recent = rides.slice(0, 5);
+    document.getElementById('recentRidesList').innerHTML = recent.length
+      ? recent.map(r => `
+          <div class="ride-card glass rounded-xl p-3.5 flex items-center gap-3 border border-slate-700/30"
+               onclick="openPayOrRateModal(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+            <div class="w-9 h-9 rounded-xl ${r.status === 'completed' ? 'bg-emerald-500/15' : r.status === 'cancelled' ? 'bg-red-500/15' : 'bg-cyan-500/15'} flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-${r.status === 'completed' ? 'check' : 'route'} text-xs ${r.status === 'completed' ? 'text-emerald-400' : r.status === 'cancelled' ? 'text-red-400' : 'text-cyan-400'}"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold text-white truncate">${r.pickup} <span class="text-slate-500">→</span> ${r.dropoff}</p>
+              <p class="text-[10px] text-slate-400">${r.driver_name || 'Awaiting driver'} · ${new Date(r.created_at).toLocaleDateString()}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs font-bold ${r.fare > 0 ? 'text-white' : 'text-slate-500'}">${r.fare > 0 ? fmt(r.fare) : '—'}</p>
+              ${statusBadge(r.status)}
+            </div>
+          </div>`).join('')
+      : '<p class="text-center text-slate-500 text-sm py-6 italic">No rides yet — book your first ride!</p>';
+  }
+}
+
+// ── BOOK FORM ────────────────────────────────────────────────
+let locations  = [];
+let locationMap = {};  // location_id (string) → { latitude, longitude, name, ... }
+let appliedPromo = null;
+
+async function loadBookForm() {
+  const [locs, profile] = await Promise.all([
+    apiFetch('/rider/locations'),
+    apiFetch('/rider/profile')
+  ]);
+  if (locs) {
+    locations = locs;
+    // Build lookup map keyed by location_id as string
+    locationMap = {};
+    locs.forEach(l => { locationMap[String(l.location_id)] = l; });
+
+    const opts = locs.map(l => `<option value="${l.location_id}">${l.name}</option>`).join('');
+    document.getElementById('book_pickup').innerHTML  = '<option value="">Select pickup…</option>' + opts;
+    document.getElementById('book_dropoff').innerHTML = '<option value="">Select dropoff…</option>' + opts;
+  }
+  if (profile) {
+    document.getElementById('book-wallet-bal').textContent = fmt(profile.wallet_balance);
+  }
+  updateBookStep();
+}
+
+function updateBookStep() {
+  const p = document.getElementById('book_pickup').value;
+  const d = document.getElementById('book_dropoff').value;
+  ['step1', 'step2', 'step3'].forEach(id => document.getElementById(id).classList.remove('active-step'));
+  if (!p || !d) {
+    document.getElementById('step1').classList.add('active-step');
+    updateFareEstimate(null, null);
+    return;
+  }
+  document.getElementById('step2').classList.add('active-step');
+  updateFareEstimate(p, d);
+}
+
+// ── REAL FARE ESTIMATE using coordinates ─────────────────────
+function updateFareEstimate(pickupId, dropoffId) {
+  const el = document.getElementById('fareEstimate');
+
+  if (!pickupId || !dropoffId) {
+    el.innerHTML = `
+      <i class="fas fa-calculator text-3xl mb-3 block opacity-20 text-slate-400"></i>
+      <p class="text-xs text-slate-500">Select locations to see estimate</p>`;
+    return;
+  }
+
+  const from = locationMap[String(pickupId)];
+  const to   = locationMap[String(dropoffId)];
+
+  if (!from || !to) {
+    el.innerHTML = `<p class="text-xs text-slate-500">Location data unavailable</p>`;
+    return;
+  }
+
+  // Check coords exist and are non-zero
+  const hasCoords = from.latitude && from.longitude && to.latitude && to.longitude &&
+                    !(from.latitude == 0 && from.longitude == 0) &&
+                    !(to.latitude == 0 && to.longitude == 0);
+
+  if (!hasCoords) {
+    // Graceful fallback: flat rate if coords missing
+    el.innerHTML = `
+      <p class="text-3xl font-bold text-cyan-400">~ ${fmt(FARE_BASE)}</p>
+      <p class="text-[10px] text-slate-400 mt-2">Flat rate (coordinates unavailable)</p>`;
+    return;
+  }
+
+  const { km, fare } = calcFare(
+    parseFloat(from.latitude),  parseFloat(from.longitude),
+    parseFloat(to.latitude),    parseFloat(to.longitude)
+  );
+
+  el.innerHTML = `
+    <p class="text-3xl font-bold text-cyan-400">~ ${fmt(fare)}</p>
+    <p class="text-[10px] text-slate-400 mt-2">${km.toFixed(1)} km · Economy</p>
+    <p class="text-[10px] text-slate-500 mt-1">PKR ${FARE_BASE} base + PKR ${FARE_PER_KM}/km</p>`;
+}
+
+async function applyPromo() {
+  const code = document.getElementById('book_promo').value.trim().toUpperCase();
+  const msg  = document.getElementById('promoMsg');
+  if (!code) return;
+  const promos = await apiFetch('/rider/promos');
+  if (!promos) return;
+  const found = promos.find(p => p.code === code);
+  msg.classList.remove('hidden');
+  if (found) {
+    appliedPromo = found;
+    msg.textContent = `✓ "${code}" applied — ${found.discount_percentage}% off (max PKR ${found.max_discount})`;
+    msg.className = 'text-[10px] mt-1 text-emerald-400';
+    document.getElementById('step3').classList.add('active-step');
+  } else {
+    appliedPromo = null;
+    msg.textContent = '✗ Invalid or expired promo code';
+    msg.className = 'text-[10px] mt-1 text-red-400';
+  }
+}
+
+async function bookRide() {
+  const pickup  = document.getElementById('book_pickup').value;
+  const dropoff = document.getElementById('book_dropoff').value;
+  const method  = document.querySelector('input[name="pay_method"]:checked')?.value;
+  const sched   = document.getElementById('book_scheduled').value;
+  const errEl   = document.getElementById('bookError');
+  const btn     = document.getElementById('bookBtn');
+
+  if (!pickup || !dropoff) {
+    errEl.textContent = 'Please select both pickup and dropoff.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (pickup === dropoff) {
+    errEl.textContent = 'Pickup and dropoff cannot be the same.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  errEl.classList.add('hidden');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Requesting…';
+  btn.disabled  = true;
+
+  // Compute fare client-side to include in request
+  let fare = FARE_BASE;
+  const from = locationMap[String(pickup)];
+  const to   = locationMap[String(dropoff)];
+  if (from?.latitude && to?.latitude &&
+      !(from.latitude == 0 && from.longitude == 0) &&
+      !(to.latitude == 0 && to.longitude == 0)) {
+    fare = calcFare(
+      parseFloat(from.latitude),  parseFloat(from.longitude),
+      parseFloat(to.latitude),    parseFloat(to.longitude)
+    ).fare;
+  }
+
+  const body = {
+    pickup_loc_id:  parseInt(pickup),
+    dropoff_loc_id: parseInt(dropoff),
+    fare,                                       // ← real computed fare
+    promo_code:   appliedPromo?.code || null,
+    scheduled_at: sched || null
+  };
+  const data = await apiFetch('/rider/rides', { method: 'POST', body: JSON.stringify(body) });
+
+  btn.innerHTML = '<i class="fas fa-location-crosshairs mr-2"></i>Request Ride';
+  btn.disabled  = false;
+
+  if (data?.ride_id) {
+    appliedPromo = null;
+    document.getElementById('book_promo').value = '';
+    document.getElementById('promoMsg').classList.add('hidden');
+    document.getElementById('book_pickup').value  = '';
+    document.getElementById('book_dropoff').value = '';
+    updateBookStep();
+    openPayModal(data.ride_id, data.fare ?? fare, method);
+    nav('rides', document.querySelectorAll('.nav-item')[2]);
+  } else {
+    errEl.textContent = data?.error || 'Failed to book ride.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ── RIDES ────────────────────────────────────────────────────
+async function loadRides() {
+  const data = await apiFetch('/rider/rides');
+  console.log('Rides data:', data);
+  if (!data) return;
+  document.getElementById('ridesBody').innerHTML = data.length
+    ? data.map(r => `
+        <tr class="tr-hover border-b border-slate-800/40">
+          <td class="py-3 font-mono text-cyan-400">#${r.ride_id}</td>
+          <td class="max-w-xs">
+            <p class="truncate text-slate-200">${r.pickup}</p>
+            <p class="truncate text-slate-500">→ ${r.dropoff}</p>
+          </td>
+          <td>${r.driver_name ? `<span class="text-white">${r.driver_name}</span><br><span class="text-slate-500 text-[10px]">${r.driver_phone || ''}</span>` : '<span class="text-slate-500">Awaiting</span>'}</td>
+          <td>${r.make ? `${r.make} ${r.model}<br><span class="font-mono text-[10px] text-slate-400">${r.license_plate || ''}</span>` : '—'}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td class="font-semibold">${r.fare > 0 ? fmt(r.fare) : '—'}</td>
+          <td>${r.payment_status ? statusBadge(r.payment_status) : '<span class="text-slate-500 text-[10px]">Unpaid</span>'}</td>
+          <td class="py-2 space-x-1">
+            ${r.status === 'completed' && !r.payment_status
+              ? `<button onclick="openPayModal(${r.ride_id},${r.fare},'cash')" class="text-[10px] bg-cyan-500/15 text-cyan-400 px-2 py-1 rounded hover:bg-cyan-500/25">Pay</button>` : ''}
+            ${r.status === 'completed' && r.driver_id !== null
+              ? `<button onclick="openRatingModal(${r.ride_id},${r.driver_id},'${(r.driver_name || '').replace(/'/g, "\\'")}')" class="text-[10px] bg-yellow-500/15 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/25">Rate</button>` : ''}
+            <button onclick="openComplaintModal(${r.ride_id})" class="text-[10px] bg-red-500/15 text-red-400 px-2 py-1 rounded hover:bg-red-500/25">Flag</button>
+          </td>
+        </tr>`).join('')
+    : '<tr><td colspan="8" class="py-8 text-center text-slate-500 italic">No rides yet</td></tr>';
+}
+
+// ── WALLET ───────────────────────────────────────────────────
+async function loadWallet() {
+  const data = await apiFetch('/rider/wallet');
+  if (!data) return;
+  document.getElementById('wallet-balance').textContent = fmt(data.balance);
+  document.getElementById('headerWallet').textContent   = fmt(data.balance);
+
+  const txns = data.transactions || [];
+  document.getElementById('walletBody').innerHTML = txns.length
+    ? txns.map(t => `
+        <tr class="tr-hover border-b border-slate-800/40">
+          <td class="py-3 font-mono text-cyan-400">#${t.payment_id}</td>
+          <td class="font-mono">#${t.ride_id}</td>
+          <td class="text-slate-400 max-w-xs truncate">${t.pickup} → ${t.dropoff}</td>
+          <td class="font-semibold text-white">${fmt(t.amount)}</td>
+          <td class="text-emerald-400">${t.discount > 0 ? '-' + fmt(t.discount) : '—'}</td>
+          <td>${statusBadge(t.method)}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td class="text-slate-400">${new Date(t.transaction_date).toLocaleDateString()}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="8" class="py-8 text-center text-slate-500 italic">No transactions yet</td></tr>';
+}
+
+function setTopup(n) { document.getElementById('topup_amount').value = n; }
+
+async function topupWallet() {
+  const amount = parseFloat(document.getElementById('topup_amount').value);
+  if (!amount || amount < 100) { alert('Minimum top-up is PKR 100'); return; }
+  const data = await apiFetch('/rider/wallet/topup', { method: 'POST', body: JSON.stringify({ amount }) });
+  if (data) { document.getElementById('topup_amount').value = ''; loadWallet(); }
+}
+
+// ── PROMOS ───────────────────────────────────────────────────
+async function loadPromos() {
+  const data = await apiFetch('/rider/promos');
+  if (!data) return;
+  document.getElementById('promoCards').innerHTML = data.length
+    ? data.map(p => `
+        <div class="promo-card glass rounded-xl p-4 border border-slate-700/30" onclick="copyPromo('${p.code}')">
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-mono font-bold text-lg text-violet-400">${p.code}</span>
+            <span class="badge bg-violet-500/15 text-violet-400">${p.discount_percentage}% OFF</span>
+          </div>
+          <p class="text-xs text-slate-400">Max discount: <span class="text-white font-semibold">${fmt(p.max_discount)}</span></p>
+          <p class="text-xs text-slate-400 mt-1">Used ${p.usage_count} / ${p.usage_limit} times</p>
+          <div class="flex justify-between items-center mt-3">
+            <p class="text-[10px] text-slate-500">Expires ${p.expiry_date}</p>
+            <button class="text-[10px] bg-violet-500/15 text-violet-400 px-2 py-1 rounded hover:bg-violet-500/25 transition">
+              <i class="fas fa-copy mr-1"></i>Copy
+            </button>
+          </div>
+        </div>`).join('')
+    : '<div class="col-span-3 py-10 text-center text-slate-500 italic">No active promos right now</div>';
+}
+
+function copyPromo(code) {
+  navigator.clipboard?.writeText(code);
+  document.getElementById('book_promo').value = code;
+}
+
+// ── PROFILE ──────────────────────────────────────────────────
+async function loadProfile() {
+  const data = await apiFetch('/rider/profile');
+  if (!data) return;
+  document.getElementById('profileContent').innerHTML = `
+    <div class="grid grid-cols-2 gap-4">
+      ${[
+        ['Full Name',      data.full_name,       2],
+        ['Email',          data.email,            2],
+        ['Phone',          data.phone,            1],
+        ['Account Status', data.account_status,   1],
+        ['Wallet Balance', fmt(data.wallet_balance), 1],
+        ['Member Since',   data.registration_date ? new Date(data.registration_date).toLocaleDateString() : '—', 1]
+      ].map(([label, val, span]) => `
+        <div class="col-span-${span}">
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">${label}</p>
+          <p class="text-sm font-semibold text-white mt-1">${val || '—'}</p>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── PAYMENT MODAL ────────────────────────────────────────────
+let activeRideForPay = null;
+
+function openPayModal(rideId, fare, method) {
+  activeRideForPay = rideId;
+  document.getElementById('pay_ride_label').textContent  = '#' + rideId;
+  document.getElementById('pay_amount').value            = fare || '';
+  document.getElementById('pay_method').value            = method || 'cash';
+  document.getElementById('pay_discount').value          = 0;
+  document.getElementById('payModal').classList.remove('hidden');
+}
+
+function closePayModal() { document.getElementById('payModal').classList.add('hidden'); }
+
+async function submitPayment() {
+  const body = {
+    ride_id:  activeRideForPay,
+    amount:   parseFloat(document.getElementById('pay_amount').value),
+    method:   document.getElementById('pay_method').value,
+    discount: parseFloat(document.getElementById('pay_discount').value) || 0
+  };
+  if (!body.amount || body.amount <= 0) { alert('Enter a valid amount'); return; }
+  const data = await apiFetch('/rider/payments', { method: 'POST', body: JSON.stringify(body) });
+  if (data?.payment_id) { closePayModal(); loadRides(); loadWallet(); }
+}
+
+// ── RATING MODAL ─────────────────────────────────────────────
+let activeRatingData = {};
+let selectedStar = 0;
+
+function openRatingModal(rideId, driverUserId, driverName) {
+  activeRatingData = { ride_id: rideId, rated_user_id: driverUserId };
+  document.getElementById('rate_ride_label').textContent   = '#' + rideId;
+  document.getElementById('rate_driver_label').textContent = driverName;
+  document.getElementById('rate_comment').value = '';
+  setStar(0);
+  document.getElementById('ratingModal').classList.remove('hidden');
+}
+
+function closeRatingModal() { document.getElementById('ratingModal').classList.add('hidden'); }
+
+function setStar(n) {
+  selectedStar = n;
+  document.querySelectorAll('.star-btn').forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.val) <= n);
+  });
+}
+
+async function submitRating() {
+  if (!selectedStar) { alert('Please select a star rating'); return; }
+  const body = {
+    ride_id:       activeRatingData.ride_id,
+    rated_user_id: activeRatingData.rated_user_id,
+    score:         selectedStar,
+    comment:       document.getElementById('rate_comment').value.trim() || null
+  };
+  console.log('Submitting rating:', body);
+  await apiFetch('/rider/ratings', { method: 'POST', body: JSON.stringify(body) });
+  closeRatingModal();
+}
+
+// ── COMPLAINT MODAL ──────────────────────────────────────────
+let activeRideForComp = null;
+
+function openComplaintModal(rideId) {
+  activeRideForComp = rideId;
+  document.getElementById('comp_ride_label').textContent = '#' + rideId;
+  document.getElementById('comp_desc').value = '';
+  document.getElementById('complaintModal').classList.remove('hidden');
+}
+
+function closeComplaintModal() { document.getElementById('complaintModal').classList.add('hidden'); }
+
+async function submitComplaint() {
+  const desc = document.getElementById('comp_desc').value.trim();
+  if (!desc) { alert('Please describe the issue'); return; }
+  await apiFetch('/rider/complaints', { method: 'POST', body: JSON.stringify({ ride_id: activeRideForComp, description: desc }) });
+  closeComplaintModal();
+}
+
+function openPayOrRateModal(r) {
+  if (r.status === 'completed' && !r.payment_status) openPayModal(r.ride_id, r.fare, 'cash');
+}
+
+function refreshAll() { loadView(document.querySelector('.view-section.active')?.id?.replace('view-', '') || 'dashboard'); }
+function logout() { localStorage.clear(); window.location.href = '/'; }
+
+// Initial load
+loadDashboard();
+</script>
+</body>
+</html>

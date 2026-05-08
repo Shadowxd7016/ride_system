@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RideFlow — Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; background: #0b1120; }
+    .glass { background: rgba(30,41,59,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(148,163,184,0.12); }
+    .btn-primary { background: linear-gradient(135deg,#06b6d4,#0891b2); transition: all .3s; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 25px -5px rgba(6,182,212,.4); }
+    .slide-up { animation: slideUp .5s ease; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    input:focus { outline: none; border-color: #06b6d4; box-shadow: 0 0 0 3px rgba(6,182,212,.15); }
+    .tab-btn { transition: all .2s; }
+    .tab-btn.active { color: #22d3ee; border-bottom: 2px solid #06b6d4; }
+    .custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
+}
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center relative py-10">
+
+  <!-- Grid background -->
+  <div class="absolute inset-0 opacity-20" style="background-image:radial-gradient(circle at 2px 2px,rgba(6,182,212,.3) 1px,transparent 0);background-size:48px 48px;"></div>
+  <div class="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full filter blur-3xl"></div>
+  <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full filter blur-3xl"></div>
+
+  <div class="glass rounded-2xl p-8 w-full max-w-md relative z-10 slide-up mx-4" style="box-shadow:0 0 40px rgba(6,182,212,.12)">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 border border-cyan-500/20" style="background:rgba(6,182,212,.12)">
+        <i class="fas fa-wave-square text-2xl text-cyan-400"></i>
+      </div>
+      <h1 class="text-3xl font-bold text-white tracking-tight">RideFlow</h1>
+      <p class="text-slate-400 text-sm mt-1">Urban Mobility Platform</p>
+    </div>
+
+    <!-- Role tabs -->
+    <div class="flex gap-6 border-b border-slate-700/50 mb-6 text-xs font-semibold">
+      <button class="tab-btn active pb-2 text-slate-300" onclick="switchTab('rider', event)">
+        <i class="fas fa-user mr-1"></i> Rider
+      </button>
+      <button class="tab-btn pb-2 text-slate-500" onclick="switchTab('driver', event)">
+        <i class="fas fa-car mr-1"></i> Driver
+      </button>
+      <button class="tab-btn pb-2 text-slate-500" onclick="switchTab('admin', event)">
+        <i class="fas fa-shield-halved mr-1"></i> Admin
+      </button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
+          <div class="relative">
+            <i class="fas fa-envelope absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+            <input id="email" type="email" placeholder="your@email.com"
+              class="w-full bg-slate-800/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+          <div class="relative">
+            <i class="fas fa-lock absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+            <input id="password" type="password" placeholder="••••••••"
+              class="w-full bg-slate-800/60 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 transition">
+          </div>
+        </div>
+        <div id="loginError" class="hidden text-red-400 text-xs px-1"></div>
+        <button onclick="handleLogin()" id="loginBtn"
+          class="w-full btn-primary text-white font-semibold py-3.5 rounded-xl shadow-lg text-sm">
+          <i class="fas fa-arrow-right-to-bracket mr-2"></i>Sign In
+        </button>
+      </div>
+
+      <div class="relative my-5">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700/50"></div></div>
+        <div class="relative text-center"><span class="bg-slate-900 px-3 text-xs text-slate-500">or</span></div>
+      </div>
+
+      <button onclick="showRegister()" class="w-full border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 font-semibold py-3 rounded-xl text-sm transition">
+        <i class="fas fa-user-plus mr-2"></i>Create Account
+      </button>
+    </div>
+
+    <!-- Register Form (hidden) -->
+    <div id="registerForm" class="hidden space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
+          <input id="reg_name" type="text" placeholder="John Doe"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
+          <input id="reg_email" type="email" placeholder="your@email.com"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Phone</label>
+          <input id="reg_phone" type="tel" placeholder="+92XXXXXXXXXX"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+          <input id="reg_password" type="password" placeholder="••••••••"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+      </div>
+
+      <!-- Driver extra fields -->
+      <div id="driverFields" class="hidden space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">License Number</label>
+          <input id="reg_license" type="text" placeholder="DL-XXXXXXX"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">CNIC</label>
+          <input id="reg_cnic" type="text" placeholder="XXXXX-XXXXXXX-X"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 transition">
+        </div>
+      </div>
+
+      <div id="regError" class="hidden text-red-400 text-xs px-1"></div>
+      <button onclick="handleRegister()"
+        class="w-full btn-primary text-white font-semibold py-3.5 rounded-xl shadow-lg text-sm">
+        <i class="fas fa-user-plus mr-2"></i>Create Account
+      </button>
+      <button onclick="showLogin()" class="w-full text-slate-400 hover:text-white text-sm py-2 transition">
+        <i class="fas fa-arrow-left mr-1"></i>Back to login
+      </button>
+    </div>
+
+    <!-- Demo credentials hint -->
+    <div class="mt-6 p-3 rounded-xl border border-slate-700/50 bg-slate-800/30">
+      <p class="text-[10px] text-slate-500 text-center font-mono" id="demoHint">
+        Demo → admin@rideflow.com / password123
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let currentRole = 'rider';
+    const demos = {
+      rider:  'Demo → jane@rideflow.com / password123',
+      driver: 'Demo → karim@rideflow.com / password123',
+      admin:  'Demo → admin@rideflow.com / password123'
+    };
+
+    // Redirect if already logged in
+    const stored = localStorage.getItem('rf_token');
+    const storedRole = localStorage.getItem('rf_role');
+    if (stored && storedRole) redirectByRole(storedRole);
+
+    function switchTab(role, event) {
+      currentRole = role;
+      document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active','text-slate-300'); b.classList.add('text-slate-500'); });
+      if (event?.currentTarget) {
+        event.currentTarget.classList.add('active','text-slate-300');
+        event.currentTarget.classList.remove('text-slate-500');
+      }
+      document.getElementById('demoHint').textContent = demos[role];
+      document.getElementById('driverFields').classList.toggle('hidden', role !== 'driver');
+    }
+
+    function showRegister() {
+      document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('registerForm').classList.remove('hidden');
+      document.getElementById('driverFields').classList.toggle('hidden', currentRole !== 'driver');
+    }
+    function showLogin() {
+      document.getElementById('registerForm').classList.add('hidden');
+      document.getElementById('loginForm').classList.remove('hidden');
+    }
+
+    async function handleLogin() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errEl    = document.getElementById('loginError');
+      const btn      = document.getElementById('loginBtn');
+
+      if (!email || !password) { showError(errEl, 'Email and password required'); return; }
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+      btn.disabled  = true;
+
+      try {
+        const res  = await fetch(`${API}/auth/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+
+        localStorage.setItem('rf_token',     data.token);
+        localStorage.setItem('rf_user',      JSON.stringify(data.user));
+        localStorage.setItem('rf_role',      data.user.role);
+        redirectByRole(data.user.role);
+      } catch (err) {
+        showError(errEl, err.message);
+        btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket mr-2"></i>Sign In';
+        btn.disabled  = false;
+      }
+    }
+
+    async function handleRegister() {
+      const errEl = document.getElementById('regError');
+      const body  = {
+        full_name: document.getElementById('reg_name').value.trim(),
+        email:     document.getElementById('reg_email').value.trim(),
+        phone:     document.getElementById('reg_phone').value.trim(),
+        password:  document.getElementById('reg_password').value,
+        role:      currentRole
+      };
+      if (currentRole === 'driver') {
+        body.license_number = document.getElementById('reg_license').value.trim();
+        body.cnic_no        = document.getElementById('reg_cnic').value.trim();
+      }
+      if (!body.full_name || !body.email || !body.phone || !body.password) {
+        showError(errEl, 'All fields are required'); return;
+      }
+      try {
+        const res  = await fetch(`${API}/auth/register`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        alert('Account created! Please sign in.');
+        showLogin();
+      } catch (err) { showError(errEl, err.message); }
+    }
+
+    function redirectByRole(role) {
+      const pages = { admin: '/admin.html', rider: '/rider.html', driver: '/driver.html' };
+      window.location.href = pages[role] || '/driver.html';
+    }
+    function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+
+    // Enter key login
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+  </script>
+</body>
+</html>
