@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+.gitignore .env* # Ignore environment variable files
+node_modules/ # Ignore dependencies
+dist/ # Ignore build output
+logs/ # Ignore log files
+*.log # Ignore log files
+*.sqlite # Ignore database files
+*.db # Ignore database files
