@@ -393,20 +393,21 @@
     <h3 class="font-bold text-white mb-1">Make Payment</h3>
     <p class="text-xs text-slate-400 mb-5">Ride <span id="pay_ride_label" class="font-mono text-cyan-400"></span></p>
     <div class="space-y-3">
-      <div>
-        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Amount (PKR)</label>
-        <input id="pay_amount" type="number" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+      <div class="flex justify-between items-center py-2 border-b border-slate-700/50">
+        <span class="text-xs text-slate-400">Amount</span>
+        <span class="text-lg font-bold text-white" id="pay_amount_display">—</span>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Method</label>
-        <select id="pay_method" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
-          <option value="cash">Cash</option><option value="wallet">Wallet</option><option value="card">Card</option>
-        </select>
+      <div class="flex justify-between items-center py-2 border-b border-slate-700/50">
+        <span class="text-xs text-slate-400">Method</span>
+        <span class="text-sm font-semibold text-cyan-400 capitalize" id="pay_method_display">—</span>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Discount (PKR, optional)</label>
-        <input id="pay_discount" type="number" value="0" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white">
+      <div class="flex justify-between items-center py-2" id="pay_discount_row">
+        <span class="text-xs text-slate-400">Discount</span>
+        <span class="text-sm font-semibold text-emerald-400" id="pay_discount_display">—</span>
       </div>
+      <input id="pay_amount"   type="hidden">
+      <input id="pay_method"   type="hidden">
+      <input id="pay_discount" type="hidden" value="0">
     </div>
     <div class="flex gap-3 mt-5">
       <button onclick="submitPayment()" class="flex-1 btn-primary text-white font-semibold py-3 rounded-xl text-sm">Pay Now</button>
@@ -599,6 +600,12 @@ function updateBookStep() {
   document.getElementById('step2').classList.add('active-step');
   updateFareEstimate(p, d);
 }
+// Check if wallet balance is sufficient for the fare
+function hasEnoughWallet(fare) {
+  const bal = parseFloat(document.getElementById('book-wallet-bal')
+    .textContent.replace('PKR ', '').replace(/,/g, '')) || 0;
+  return bal >= fare;
+}
 
 // ── REAL FARE ESTIMATE using coordinates ─────────────────────
 function updateFareEstimate(pickupId, dropoffId) {
@@ -637,8 +644,18 @@ function updateFareEstimate(pickupId, dropoffId) {
     parseFloat(to.latitude),    parseFloat(to.longitude)
   );
 
+let discount = 0;
+  let finalFare = fare;
+  if (appliedPromo) {
+    discount  = Math.min(fare * appliedPromo.discount_percentage / 100, appliedPromo.max_discount);
+    finalFare = Math.round(fare - discount);
+  }
   el.innerHTML = `
-    <p class="text-3xl font-bold text-cyan-400">~ ${fmt(fare)}</p>
+    <p class="text-3xl font-bold text-cyan-400">~ ${fmt(finalFare)}</p>
+    ${discount > 0 ? `
+      <p class="text-[10px] text-slate-400 line-through mt-1">${fmt(fare)}</p>
+      <p class="text-[10px] text-emerald-400 mt-0.5">You save ${fmt(discount)} (${appliedPromo.discount_percentage}% off, capped at PKR ${appliedPromo.max_discount})</p>
+    ` : ''}
     <p class="text-[10px] text-slate-400 mt-2">${km.toFixed(1)} km · Economy</p>
     <p class="text-[10px] text-slate-500 mt-1">PKR ${FARE_BASE} base + PKR ${FARE_PER_KM}/km</p>`;
 }
@@ -649,20 +666,36 @@ async function applyPromo() {
   if (!code) return;
   const promos = await apiFetch('/rider/promos');
   if (!promos) return;
+  const today = new Date(); today.setHours(0,0,0,0);
   const found = promos.find(p => p.code === code);
   msg.classList.remove('hidden');
-  if (found) {
-    appliedPromo = found;
-    msg.textContent = `✓ "${code}" applied — ${found.discount_percentage}% off (max PKR ${found.max_discount})`;
-    msg.className = 'text-[10px] mt-1 text-emerald-400';
-    document.getElementById('step3').classList.add('active-step');
-  } else {
+  if (!found) {
     appliedPromo = null;
-    msg.textContent = '✗ Invalid or expired promo code';
+    msg.textContent = '✗ Promo code not found';
     msg.className = 'text-[10px] mt-1 text-red-400';
+    return;
   }
+  if (new Date(found.expiry_date) < today) {
+    appliedPromo = null;
+    msg.textContent = '✗ This promo code has expired';
+    msg.className = 'text-[10px] mt-1 text-red-400';
+    return;
+  }
+  if (found.usage_count >= found.usage_limit) {
+    appliedPromo = null;
+    msg.textContent = '✗ This promo code has reached its usage limit';
+    msg.className = 'text-[10px] mt-1 text-red-400';
+    return;
+  }
+  appliedPromo = found;
+  updateFareEstimate(
+    document.getElementById('book_pickup').value,
+    document.getElementById('book_dropoff').value
+  );
+  msg.textContent = `✓ "${code}" applied — ${found.discount_percentage}% off (max PKR ${found.max_discount})`;
+  msg.className = 'text-[10px] mt-1 text-emerald-400';
+  document.getElementById('step3').classList.add('active-step');
 }
-
 async function bookRide() {
   const pickup  = document.getElementById('book_pickup').value;
   const dropoff = document.getElementById('book_dropoff').value;
@@ -681,7 +714,29 @@ async function bookRide() {
     errEl.classList.remove('hidden');
     return;
   }
-
+  if (method === 'wallet') {
+    let fare = FARE_BASE;
+  const from = locationMap[String(pickup)];
+  const to   = locationMap[String(dropoff)];
+  if (from?.latitude && to?.latitude &&
+      !(from.latitude == 0 && from.longitude == 0) &&
+      !(to.latitude == 0 && to.longitude == 0)) {
+    fare = calcFare(
+      parseFloat(from.latitude),  parseFloat(from.longitude),
+      parseFloat(to.latitude),    parseFloat(to.longitude)
+    ).fare;
+  }
+    let finalFare = fare;
+    if (appliedPromo) {
+      const disc = Math.min(fare * appliedPromo.discount_percentage / 100, appliedPromo.max_discount);
+      finalFare = Math.round(fare - disc);
+    }
+    if (!hasEnoughWallet(finalFare)) {
+      errEl.textContent = `Insufficient wallet balance. You need PKR ${finalFare.toLocaleString()} but your balance is low. Top up or choose Cash.`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+  }
   errEl.classList.add('hidden');
   btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Requesting…';
   btn.disabled  = true;
@@ -698,13 +753,19 @@ async function bookRide() {
       parseFloat(to.latitude),    parseFloat(to.longitude)
     ).fare;
   }
+  const discount = appliedPromo
+    ? Math.min(fare * appliedPromo.discount_percentage / 100, appliedPromo.max_discount)
+    : 0;
+  const finalFare = Math.round(fare - discount);
 
   const body = {
     pickup_loc_id:  parseInt(pickup),
     dropoff_loc_id: parseInt(dropoff),
-    fare,                                       // ← real computed fare
-    promo_code:   appliedPromo?.code || null,
-    scheduled_at: sched || null
+    fare:           finalFare,        // discounted fare
+    original_fare:  fare,             // before discount
+    discount:       Math.round(discount),
+    promo_code:     appliedPromo?.code || null,
+    scheduled_at:   sched || null
   };
   const data = await apiFetch('/rider/rides', { method: 'POST', body: JSON.stringify(body) });
 
@@ -718,8 +779,8 @@ async function bookRide() {
     document.getElementById('book_pickup').value  = '';
     document.getElementById('book_dropoff').value = '';
     updateBookStep();
-    openPayModal(data.ride_id, data.fare ?? fare, method);
     nav('rides', document.querySelectorAll('.nav-item')[2]);
+    openPayModal(data.ride_id, data.fare ?? finalFare, method, Math.round(discount));
   } else {
     errEl.textContent = data?.error || 'Failed to book ride.';
     errEl.classList.remove('hidden');
@@ -839,12 +900,21 @@ async function loadProfile() {
 // ── PAYMENT MODAL ────────────────────────────────────────────
 let activeRideForPay = null;
 
-function openPayModal(rideId, fare, method) {
+function openPayModal(rideId, fare, method, discount = 0) {
   activeRideForPay = rideId;
   document.getElementById('pay_ride_label').textContent  = '#' + rideId;
   document.getElementById('pay_amount').value            = fare || '';
   document.getElementById('pay_method').value            = method || 'cash';
-  document.getElementById('pay_discount').value          = 0;
+  document.getElementById('pay_discount').value          = discount;
+  document.getElementById('pay_amount_display').textContent  = fmt(fare);
+  document.getElementById('pay_method_display').textContent  = method || 'cash';
+  const discRow = document.getElementById('pay_discount_row');
+  if (discount > 0) {
+    document.getElementById('pay_discount_display').textContent = '−' + fmt(discount);
+    discRow.style.display = 'flex';
+  } else {
+    discRow.style.display = 'none';
+  }
   document.getElementById('payModal').classList.remove('hidden');
 }
 
@@ -858,6 +928,15 @@ async function submitPayment() {
     discount: parseFloat(document.getElementById('pay_discount').value) || 0
   };
   if (!body.amount || body.amount <= 0) { alert('Enter a valid amount'); return; }
+
+  if (body.method === 'wallet') {
+    if (!hasEnoughWallet(body.amount)) {
+      alert(`Insufficient wallet balance. You need ${fmt(body.amount)} to complete this payment.`);
+      return;
+    }
+    await apiFetch('/rider/wallet/deduct', { method: 'POST', body: JSON.stringify({ amount: body.amount }) });
+  }
+
   const data = await apiFetch('/rider/payments', { method: 'POST', body: JSON.stringify(body) });
   if (data?.payment_id) { closePayModal(); loadRides(); loadWallet(); }
 }

@@ -412,4 +412,30 @@ router.patch('/drivers/:id/:status', adminOnly, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── Payouts ─────────────────────────────────────────────────────────
+router.get('/payouts', adminOnly, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT p.*, u.full_name AS driver_name, u.email
+       FROM PAYOUTS p
+       JOIN USERS u ON u.user_id = p.driver_id
+       ORDER BY p.requested_at DESC`
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch('/payouts/:id/status', adminOnly, async (req, res) => {
+  const { status } = req.body;
+  const allowed = ['completed', 'failed'];
+  if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  try {
+    await db.execute(
+      `UPDATE PAYOUTS SET status = ?, completed_at = ${status === 'completed' ? 'NOW()' : 'NULL'} WHERE payout_id = ?`,
+      [status, req.params.id]
+    );
+    res.json({ success: true, message: `Payout marked as ${status}` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

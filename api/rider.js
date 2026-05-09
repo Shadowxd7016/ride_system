@@ -48,8 +48,7 @@ router.post('/rides', riderAuth, async (req, res) => {
       [req.user.user_id, driver_id || null, vehicle_id || null, pickup_loc_id, dropoff_loc_id, fare, scheduled_at || null]
     );
     const ride_id = result.insertId;
-
-    // Apply promo if provided
+    // If a promo code was provided, validate and link it to the ride
     if (promo_code) {
       const [promos] = await db.execute(
         `SELECT promo_id FROM PROMO WHERE code = ? AND expiry_date >= CURDATE() AND usage_limit > usage_count AND status = 'active'`,
@@ -59,6 +58,7 @@ router.post('/rides', riderAuth, async (req, res) => {
         await db.execute(`INSERT INTO RIDE_PROMO (ride_id, promo_id) VALUES (?, ?)`, [ride_id, promos[0].promo_id]);
       }
     }
+
     res.status(201).json({ message: 'Ride requested', ride_id });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -153,4 +153,65 @@ router.post('/wallet/topup', riderAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/rides/estimate — estimate fare with optional promo
+router.post('/estimate', auth(['rider', 'driver', 'admin']), async (req, res) => {
+  const { base_fare, promo_code } = req.body;
+
+  if (!base_fare || isNaN(base_fare)) {
+    return res.status(400).json({ error: 'base_fare is required' });
+  }
+
+  let discount = 0;
+  let promo = null;
+
+  if (promo_code) {
+    const [rows] = await db.execute(
+      `SELECT * FROM PROMO 
+       WHERE code = ? 
+         AND status = 'active' 
+         AND expiry_date >= CURDATE()
+         AND usage_count < usage_limit`,
+      [promo_code.toUpperCase()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid, expired, or exhausted promo code' });
+    }
+
+    promo = rows[0];
+    const rawDiscount = (base_fare * promo.discount_percentage) / 100;
+    discount = Math.min(rawDiscount, promo.max_discount);
+  }
+
+  const estimated_fare = Math.max(0, base_fare - discount);
+
+  res.json({
+    base_fare: parseFloat(base_fare),
+    promo_applied: !!promo,
+    promo_code: promo?.code || null,
+    discount_percentage: promo?.discount_percentage || 0,
+    discount_amount: parseFloat(discount.toFixed(2)),
+    max_discount_cap: promo?.max_discount || null,
+    estimated_fare: parseFloat(estimated_fare.toFixed(2)),
+  });
+});
+// POST /api/rider/wallet/deduct
+router.post('/wallet/deduct', auth(['rider']), async (req, res) => {
+  const { amount } = req.body;
+  console.log(`Attempting to deduct ${amount} from rider ${req.user.user_id}'s wallet`);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+  try {
+    const [check] = await db.execute(
+      `SELECT wallet_balance FROM USERS WHERE user_id = ?`, [req.user.user_id]
+    );
+    if (check[0].wallet_balance < amount)
+      return res.status(400).json({ error: 'Insufficient wallet balance' });
+
+    await db.execute(
+      `UPDATE USERS SET wallet_balance = wallet_balance - ? WHERE user_id = ?`,
+      [amount, req.user.user_id]
+    );
+    res.json({ message: 'Wallet deducted', remaining: check[0].wallet_balance - amount });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;

@@ -75,6 +75,11 @@
     <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('complaints',this)">
       <i class="fas fa-comment-dots w-5 text-center"></i><span class="hidden lg:block ml-3">Complaints</span>
     </div>
+    <div class="nav-item flex items-center px-4 lg:px-6 py-3 text-slate-400 text-sm font-medium" onclick="nav('payouts',this)">
+      <i class="fas fa-money-bill-transfer w-5 text-center"></i>
+      <span class="hidden lg:block ml-3">Payouts</span>
+      <span id="payoutBadge" class="hidden lg:flex ml-auto bg-purple-500/15 text-purple-400 badge">0</span>
+    </div>
   </nav>
   <div class="p-4 border-t border-slate-800/80">
     <button onclick="logout()" class="w-full flex items-center justify-center lg:justify-start px-2 py-2.5 text-slate-400 hover:text-red-400 rounded-xl transition text-sm font-medium">
@@ -415,7 +420,37 @@
           </table></div>
         </div>
       </div>
-
+      <!-- ═══ PAYOUTS ═══ -->
+      <div id="view-payouts" class="view-section">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white text-sm uppercase tracking-wider">Driver Payouts</h3>
+              <p class="text-xs text-slate-400">Approve or reject pending driver payout requests</p>
+            </div>
+            <span id="pendingPayoutCount" class="bg-purple-500/15 text-purple-400 badge">0 pending</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="text-slate-400 border-b border-slate-700/50">
+                  <th class="text-left py-3">ID</th>
+                  <th class="text-left py-3">Driver</th>
+                  <th class="text-left py-3">Email</th>
+                  <th class="text-left py-3">Amount</th>
+                  <th class="text-left py-3">Status</th>
+                  <th class="text-left py-3">Requested At</th>
+                  <th class="text-left py-3">Completed At</th>
+                  <th class="text-left py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="payoutsBody" class="text-slate-300">
+                <tr><td colspan="8" class="py-4 text-center text-slate-500">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -442,7 +477,10 @@
 const API   = '/api';
 const token = localStorage.getItem('rf_token');
 const user  = JSON.parse(localStorage.getItem('rf_user') || '{}');
-
+function refreshAll() {
+  const active = document.querySelector('.view-section.active');
+  if (active) loadView(active.id.replace('view-', ''));
+}
 if (!token || user.role !== 'admin') { window.location.href = '/'; }
 document.getElementById('adminName').textContent = user.full_name || 'Admin';
 
@@ -479,13 +517,30 @@ function showError(msg) {
   }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+  apiFetch('/admin/drivers').then(data => { 
+    if (!data) return; 
+    const n = data.filter(d => d.verification_status === 'pending').length; 
+    const vb = document.getElementById('verifBadge'); 
+    if (vb) { vb.textContent = n; vb.classList.toggle('hidden', !n); } 
+  });
+  // ADD THIS
+  apiFetch('/admin/payouts').then(data => {
+    if (!data) return;
+    const n = data.filter(p => p.status === 'pending').length;
+    const pb = document.getElementById('payoutBadge');
+    if (pb) { pb.textContent = n; pb.classList.toggle('hidden', !n); }
+  });
+});
+
 function nav(view, el) {
   document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active','text-cyan-400'));
   el.classList.add('active');
   const titles = { dashboard:'Admin Command Center', users:'Manage Users', vehicles:'Vehicles',
-    rides:'All Rides', driververif:'Driver Verification', reports:'System Reports', fare:'Fare Rules', promos:'Promo Codes', flags:'Flags & Alerts', complaints:'Complaints' };
+    rides:'All Rides', driververif:'Driver Verification', reports:'System Reports', fare:'Fare Rules', promos:'Promo Codes', flags:'Flags & Alerts', complaints:'Complaints',payouts: 'Driver Payouts', };
   document.getElementById('pageTitle').textContent = titles[view];
   loadView(view);
 }
@@ -500,6 +555,8 @@ function loadView(view) {
   if (view === 'promos')     loadPromos();
   if (view === 'flags')      loadFlags();
   if (view === 'complaints') loadComplaints();
+  if (view === 'payouts')    loadPayouts();
+  
 }
 
 async function loadDashboard() {
@@ -969,6 +1026,53 @@ document.addEventListener('DOMContentLoaded', () => {
     } 
   });
 });
+async function loadPayouts() {
+      const data = await apiFetch('/admin/payouts');
+      if (!data) return;
+
+      const pending = data.filter(p => p.status === 'pending');
+      const badge = document.getElementById('payoutBadge');
+      const countEl = document.getElementById('pendingPayoutCount');
+      if (badge) { badge.textContent = pending.length; badge.classList.toggle('hidden', !pending.length); }
+      if (countEl) countEl.textContent = `${pending.length} pending`;
+
+      document.getElementById('payoutsBody').innerHTML = data.length
+        ? data.map(p => `
+            <tr class="tr-hover border-b border-slate-800/40">
+              <td class="py-3 font-mono text-cyan-400">#${p.payout_id}</td>
+              <td class="font-semibold text-white">${p.driver_name}</td>
+              <td class="text-slate-400">${p.email}</td>
+              <td class="font-bold text-emerald-400">PKR ${parseFloat(p.amount).toLocaleString()}</td>
+              <td>${statusBadge(p.status)}</td>
+              <td class="text-slate-400">${new Date(p.requested_at).toLocaleString()}</td>
+              <td class="text-slate-400">${p.completed_at ? new Date(p.completed_at).toLocaleString() : '—'}</td>
+              <td class="py-2">
+                ${p.status === 'pending' ? `
+                  <button onclick="updatePayout(${p.payout_id},'completed')"
+                    class="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-1 rounded mr-1 hover:bg-emerald-500/25">
+                    ✓ Complete
+                  </button>
+                  <button onclick="updatePayout(${p.payout_id},'failed')"
+                    class="text-[10px] bg-red-500/15 text-red-400 px-2 py-1 rounded hover:bg-red-500/25">
+                    ✗ Fail
+                  </button>` : '—'}
+              </td>
+            </tr>`).join('')
+        : '<tr><td colspan="8" class="py-4 text-center text-slate-500 italic">No payout requests found</td></tr>';
+    }
+
+    async function updatePayout(id, status) {
+      if (!confirm(`Are you sure you want to mark payout #${id} as ${status}?`)) return;
+      const result = await apiFetch(`/admin/payouts/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+      if (result && result.success) {
+        loadPayouts();
+      } else {
+        alert('Failed to update payout status.');
+      }
+    }
 </script>
 </body>
 </html>

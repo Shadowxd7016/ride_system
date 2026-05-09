@@ -8,7 +8,7 @@ const driverAuth = auth(['driver', 'admin']);
 router.get('/profile', driverAuth, async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT u.user_id, u.full_name, u.email, u.phone,
+      `SELECT u.user_id, u.full_name, u.email, u.phone,u.wallet_balance,
               d.license_number, d.cnic_no, d.verification_status,
               d.availability_status, d.avg_rating, d.total_trips
        FROM USERS u JOIN DRIVERS d ON d.driver_id = u.user_id
@@ -85,23 +85,39 @@ router.get('/rides', driverAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PATCH /api/driver/rides/:id/status — accept/reject/complete/cancel
+// PATCH /api/driver/rides/:id/status
 router.patch('/rides/:id/status', driverAuth, async (req, res) => {
   const { status } = req.body;
   const rideId = req.params.id;
   const driverId = req.user.user_id;
-  console.log(`Updating ride ${rideId} to status '${status}' by driver ${driverId}`);
+
   try {
+    // Update ride status
     await db.execute(
-    `UPDATE RIDES 
-    SET status = ?, 
-        completed_at = CASE WHEN ? = 'completed' THEN NOW() ELSE completed_at END
-    WHERE ride_id = ? AND driver_id = ?`,
-    [status, status, req.params.id, req.user.user_id]
-);
-    res.json({ message: 'Ride status updated', status });
+      `UPDATE RIDES SET status = ? WHERE ride_id = ? AND driver_id = ?`,
+      [status, rideId, driverId]
+    );
+
+    // If completing the ride, credit 80% to driver wallet (only if payment method is wallet)
+    if (status === 'completed') {
+      // Get ride fare and payment method
+      const [[payment]] = await db.execute(
+        `SELECT p.amount, p.method FROM PAYMENTS p WHERE p.ride_id = ?`,
+        [rideId]
+      );
+
+      if (payment && payment.method === 'wallet') {
+        const driverCut = parseFloat(payment.amount) * 0.80;
+        await db.execute(
+          `UPDATE USERS SET wallet_balance = wallet_balance + ? WHERE user_id = ?`,
+          [driverCut, driverId]
+        );
+      }
+    }
+
+    res.json({ success: true, status });
   } catch (err) {
-    console.error("SQL Error:", err.message);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -175,6 +191,37 @@ router.post('/payouts', driverAuth, async (req, res) => {
       [req.user.user_id, amount]
     );
     res.status(201).json({ payout_id: r.insertId, message: 'Payout requested' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /api/driver/payouts — get payout history
+router.get('/payouts', driverAuth, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT * FROM PAYOUTS WHERE driver_id = ? ORDER BY requested_at DESC`,
+      [req.user.user_id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/driver/payouts — request a payout
+router.post('/payouts', driverAuth, async (req, res) => {
+  const { amount } = req.body;
+  try {
+    // Check wallet balance first
+    const [[user]] = await db.execute(
+      `SELECT wallet_balance FROM USERS WHERE user_id = ?`, [req.user.user_id]
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (parseFloat(amount) > parseFloat(user.wallet_balance)) {
+      return res.status(400).json({ error: `Insufficient balance. Your wallet has PKR ${user.wallet_balance}` });
+    }
+    const [result] = await db.execute(
+      `INSERT INTO PAYOUTS (driver_id, amount, status, requested_at) VALUES (?, ?, 'pending', NOW())`,
+      [req.user.user_id, amount]
+    );
+    res.status(201).json({ payout_id: result.insertId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
